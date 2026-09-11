@@ -38,4 +38,4 @@ top_level
           pattern:
             named_pattern
               name_node: identifier "URLSession"
-              sub_pattern: bulk_importing_pattern
+              sub_pattern: bulk_importing_pattern "import Foundation.Networking.URLSession"

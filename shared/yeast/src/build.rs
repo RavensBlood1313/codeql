@@ -33,9 +33,6 @@ pub struct BuildCtx<'a, C: 'a = ()> {
     pub ast: &'a mut Ast,
     pub captures: &'a Captures,
     pub fresh: &'a FreshScope,
-    /// Optional source range explicitly inherited by every synthetic node built
-    /// through this context.
-    pub source_range: Option<Range>,
     /// Source range of the node matched by the current rule.
     ///
     /// The `rule!` macro applies this range to locally-created result roots
@@ -66,26 +63,6 @@ impl<'a, C> BuildCtx<'a, C> {
             ast,
             captures,
             fresh,
-            source_range: None,
-            matched_source_range: None,
-            user_ctx,
-            translator: None,
-            created_nodes: BTreeSet::new(),
-        }
-    }
-
-    pub fn with_source_range(
-        ast: &'a mut Ast,
-        captures: &'a Captures,
-        fresh: &'a FreshScope,
-        source_range: Option<Range>,
-        user_ctx: &'a mut C,
-    ) -> Self {
-        Self {
-            ast,
-            captures,
-            fresh,
-            source_range,
             matched_source_range: None,
             user_ctx,
             translator: None,
@@ -107,7 +84,6 @@ impl<'a, C> BuildCtx<'a, C> {
             ast,
             captures,
             fresh,
-            source_range: None,
             matched_source_range: source_range,
             user_ctx,
             translator: Some(translator),
@@ -153,7 +129,7 @@ impl<'a, C> BuildCtx<'a, C> {
         fields: BTreeMap<FieldId, Vec<Id>>,
         is_named: bool,
     ) -> Id {
-        self.create_node_with_range(kind, content, fields, is_named, self.source_range)
+        self.create_node_with_range(kind, content, fields, is_named, None)
     }
 
     /// Create a named token and record it as constructed by this rule invocation.
@@ -179,7 +155,7 @@ impl<'a, C> BuildCtx<'a, C> {
 
     /// Create a named token using this context's explicit default source range.
     pub fn create_named_token(&mut self, kind: &'static str, content: String) -> Id {
-        self.create_named_token_with_range(kind, content, self.source_range)
+        self.create_named_token_with_range(kind, content, None)
     }
 
     /// Finish the current rule invocation by applying the matched source range
@@ -275,11 +251,7 @@ impl<'a, C> BuildCtx<'a, C> {
         value: &str,
         source_range: Option<Range>,
     ) -> Id {
-        self.create_named_token_with_range(
-            kind,
-            value.to_string(),
-            source_range.or(self.source_range),
-        )
+        self.create_named_token_with_range(kind, value.to_string(), source_range)
     }
 
     /// Create a literal with an empty range at another node's start.
@@ -360,7 +332,6 @@ impl<C: Clone> BuildCtx<'_, C> {
             ast: &mut *self.ast,
             captures: self.captures,
             fresh: self.fresh,
-            source_range: self.source_range,
             matched_source_range: self.matched_source_range,
             user_ctx: &mut child_user_ctx,
             translator: self.translator,
