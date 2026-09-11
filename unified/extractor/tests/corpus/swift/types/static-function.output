@@ -54,4 +54,4 @@ top_level
             function_declaration
               modifier: modifier "static"
               name_node: identifier "make"
-              body: block "static func make() {}"
+              body: block

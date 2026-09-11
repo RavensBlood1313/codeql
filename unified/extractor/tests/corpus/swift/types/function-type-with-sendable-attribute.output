@@ -61,4 +61,4 @@ top_level
           type: unsupported_node "@Sendable () -> Void"
           value:
             function_expr
-              body: block "{}"
+              body: block

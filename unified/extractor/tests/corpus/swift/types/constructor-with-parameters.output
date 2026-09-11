@@ -77,4 +77,4 @@ top_level
                   external_name_node: identifier "height"
                   type: identifier "Int"
                   pattern: identifier "h"
-              body: block "init(width w: Int, height h: Int) {}"
+              body: block

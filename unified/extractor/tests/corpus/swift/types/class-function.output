@@ -54,4 +54,4 @@ top_level
             function_declaration
               modifier: modifier "class"
               name_node: identifier "make"
-              body: block "class func make() {}"
+              body: block

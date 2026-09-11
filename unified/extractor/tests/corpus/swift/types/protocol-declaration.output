@@ -63,8 +63,8 @@ top_level
           member:
             function_declaration
               name_node: identifier "draw"
-              body: block "func draw()"
+              body: block
             function_declaration
               modifier: modifier "static"
               name_node: identifier "make"
-              body: block "static func make()"
+              body: block

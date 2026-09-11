@@ -82,7 +82,7 @@ top_level
                     parameter
                       type: identifier "Double"
                       pattern: identifier "radius"
-                  body: block "circle(radius: Double)"
+                  body: block
             class_like_declaration
               modifier: modifier "enum_case"
               name_node: identifier "square"
@@ -92,4 +92,4 @@ top_level
                     parameter
                       type: identifier "Double"
                       pattern: identifier "side"
-                  body: block "square(side: Double)"
+                  body: block
