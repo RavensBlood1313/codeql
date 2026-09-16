@@ -408,3 +408,63 @@ class TestFixturesStillMatchJust(unittest.TestCase):
             forward_command.list_value(self.dump["assignments"], "explicit_verbs"),
             ["test"],
         )
+
+
+@unittest.skipUnless(JUST, "needs `just` on PATH")
+class TestImportingDoesNotChangeARecipe(unittest.TestCase):
+    """Ask `just` for the premise the deduplication rests on rather than assuming it.
+
+    A root importing the justfile that defines a `_root_<verb>` reaches one recipe under
+    two spellings, and it is told apart from two repositories each defining their own by
+    comparing the recipes whole. That comparison reads every field `just` emits, not the
+    few the rest of this file models, so a release adding a per-recipe field that varies
+    between justfiles -- a source path, a line number, anything saying where a recipe was
+    written -- would stop the two spellings comparing equal and run an inherited recipe
+    twice.
+
+    Such a field is precisely the discriminator this code would otherwise want, so it
+    would arrive looking like a feature. The fixtures above cannot see any of this: they
+    are compared as subsets, which is right for reading a field by name and blind to a
+    field nobody thought to model.
+    """
+
+    def recipes(self, justfile):
+        dumped = subprocess.run(
+            [JUST, "--justfile", str(justfile), "--dump", "--dump-format", "json"],
+            capture_output=True,
+            text=True,
+            check=True,
+        )
+        return json.loads(dumped.stdout)["recipes"]
+
+    def setUp(self):
+        directory = tempfile.TemporaryDirectory()
+        self.addCleanup(directory.cleanup)
+        root = Path(directory.name)
+        (root / "inner").mkdir()
+        self.inner = root / "inner" / "justfile"
+        self.inner.write_text("# Shared.\n_root_format:\n    echo shared\n")
+        self.outer = root / "justfile"
+
+    def test_an_imported_recipe_is_the_one_it_came_from(self):
+        self.outer.write_text("import 'inner/justfile'\n")
+        self.assertEqual(
+            self.recipes(self.outer)["_root_format"],
+            self.recipes(self.inner)["_root_format"],
+        )
+
+    def test_a_root_defining_its_own_is_not(self):
+        # Same body, so only the comment separates them: the narrowest the difference
+        # between the two shapes ever gets.
+        self.outer.write_text(
+            "set allow-duplicate-recipes\n"
+            "import 'inner/justfile'\n"
+            "\n"
+            "# Mine.\n"
+            "_root_format:\n"
+            "    echo shared\n"
+        )
+        self.assertNotEqual(
+            self.recipes(self.outer)["_root_format"],
+            self.recipes(self.inner)["_root_format"],
+        )
