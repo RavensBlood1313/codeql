@@ -14,12 +14,9 @@ _bazel_workspace := quote(parent_directory(parent_directory(source_dir())))
 
 _bazel_formatter := (if SEMMLE_CODE != "" { '"$SEMMLE_CODE/tools/bazel"' } else { "bazel" }) + " run @buildifier_prebuilt//:buildifier"
 
+# Kept out of the formatter, unlike the other three: bazel's own flags have to sit between
+# the target and `--`, so no single string spans both sides of it.
 _bazel_args := "-mode=fix -lint=fix"
-
-# These have to sit between the target and `--`, which is what keeps `_bazel_args` from
-# folding into the invocation the way the other formatters' arguments do. Only output is
-# at stake here, which is what the banner leaves out.
-_bazel_quiet := "--noshow_progress --ui_event_filters=,+error,+fail"
 
 # Keep both in step with the `buildifier` target. The names are what it recognises walking a
 # workspace, a check it skips for paths handed to it, so anything extra here is rewritten
@@ -29,14 +26,11 @@ _bazel_names := "BUILD,WORKSPACE,*.bazel,*.bzl,*.sky,*.star"
 
 _bazel_excluded := ".git/*,*/.git/*,*misc/bazel/3rdparty/*_deps/*"
 
-# `-v` accounts for every file, so the empty tally is dropped. A non-zero one is kept: it is
-# the only notice of warnings buildifier could not fix, as the exit code stays 0 regardless.
-_bazel_accounting := ': applied fixes, 0 warnings left$'
-
 # These formatters take files rather than directories, so `run_on_files.py` collects them
-# and passes them positionally, which is what lets paths contain spaces. `codeql query
-# format` likewise only reports what it rewrote if it also names everything it did not, so
-# those lines are dropped and nothing else is.
+# and passes them positionally, which is what lets paths contain spaces. Both name every
+# file they were given, so the lines saying nothing happened are dropped: for buildifier
+# that is an empty warning tally, and a non-zero one is left alone, being the only notice
+# of what it could not fix now that the exit code is 0 either way.
 #
 # The banner is a report rather than a command to paste: it names the formatter and what
 # it is told to do, and leaves out the collecting, the patterns walked and the flags that
@@ -73,4 +67,4 @@ _bazel_accounting := ': applied fixes, 0 warnings left$'
 [positional-arguments]
 @_format_bazel *ARGS=".":
     echo "$CMD_BEGIN-> "{{ quote(_bazel_formatter + " -- " + _bazel_args) }}" -- $*$CMD_END" >&2
-    {{ py }} "{{ source_dir() }}/run_on_files.py" --absolute --chdir {{ _bazel_workspace }} --within {{ _bazel_workspace }} --drop '{{ _bazel_accounting }}' --exclude '{{ _bazel_excluded }}' "{{ _bazel_names }}" {{ _bazel_formatter }} {{ _bazel_quiet }} -- {{ _bazel_args }} -v -- "$@"
+    {{ py }} "{{ source_dir() }}/run_on_files.py" --absolute --chdir {{ _bazel_workspace }} --within {{ _bazel_workspace }} --drop ': applied fixes, 0 warnings left$' --exclude '{{ _bazel_excluded }}' "{{ _bazel_names }}" {{ _bazel_formatter }} --noshow_progress --ui_event_filters=,+error,+fail -- {{ _bazel_args }} -v -- "$@"
