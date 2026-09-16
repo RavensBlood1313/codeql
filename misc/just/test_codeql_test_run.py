@@ -5,24 +5,61 @@ Sorting arguments is the whole of what this file decides, and it decides it by l
 at each one: a word is a test, a `-` is a flag, `NAME=value` is an environment
 assignment. Several of these pin down that an argument arrives whole, spaces and all,
 which is what taking them as a list rather than re-splitting a string bought.
+
+Sorting and resolving are tested at different levels because they happen at different
+levels. `parse_arguments` only sorts; a setting is not resolved until `main` has merged
+the assignments into the environment, so anything about precedence is observed there.
 """
 
 import os
+import sys
 import unittest
 from unittest import mock
 
 import codeql_test_run
 
 
-def empty_args():
-    """A command line carrying nothing but the language `main` reads off the front."""
-    return sorted_args()
-
-
-def sorted_args(*argv):
+def sorted_args(*argv, semmle_code=None):
     """Sort a command line, supplying the language that always precedes it."""
-    with mock.patch.object(codeql_test_run, "SEMMLE_CODE", None):
-        return codeql_test_run.parse_arguments(["alanguage", *argv])
+    with (
+        mock.patch.object(codeql_test_run, "SEMMLE_CODE", semmle_code),
+        mock.patch.object(sys, "argv", ["codeql_test_run.py", "alanguage", *argv]),
+    ):
+        return codeql_test_run.parse_arguments()
+
+
+def run_main(*argv, environ=None):
+    """Run `main` with the executable and the child process stubbed out.
+
+    Returns the flags and tests handed to `codeql test run`, and the environment the
+    child would have been given.
+    """
+    codeql = mock.MagicMock()
+    codeql.exists.return_value = True
+    with (
+        mock.patch.object(codeql_test_run, "SEMMLE_CODE", None),
+        mock.patch.object(sys, "argv", ["codeql_test_run.py", "alanguage", *argv]),
+        mock.patch.dict(os.environ, environ or {}, clear=True),
+        mock.patch.object(codeql_test_run, "resolve_codeql", return_value=codeql),
+        mock.patch.object(codeql_test_run, "invoke", return_value=0) as invoke,
+    ):
+        codeql_test_run.main()
+        (invocation,) = invoke.call_args.args
+        separator = invocation.index("--")
+        # Past the executable and `test run`, up to the separator `main` adds itself.
+        return invocation[3:separator], invocation[separator + 1 :], dict(os.environ)
+
+
+def flags(*argv, environ=None):
+    return run_main(*argv, environ=environ)[0]
+
+
+def paths(*argv, environ=None):
+    return run_main(*argv, environ=environ)[1]
+
+
+def child_environ(*argv, environ=None):
+    return run_main(*argv, environ=environ)[2]
 
 
 class TestParseArgs(unittest.TestCase):
@@ -35,17 +72,21 @@ class TestParseArgs(unittest.TestCase):
         )
 
     def test_an_uppercase_assignment_is_an_environment_variable(self):
-        self.assertEqual(sorted_args("CPUS=4").env, ["CPUS=4"])
+        self.assertEqual(sorted_args("CPUS=4").env, {"CPUS": "4"})
 
     def test_a_lowercase_assignment_is_a_test(self):
         # Only shouting counts, so a path that happens to contain `=` stays a path.
         self.assertEqual(sorted_args("dir/a=b").tests, ["dir/a=b"])
 
     def test_codeql_selects_the_executable(self):
-        self.assertEqual(sorted_args("--codeql=built").codeql, "built")
+        # `built` is rejected outright without an internal checkout to build in, so
+        # this says what it means to sort the option, not to act on it.
+        args = sorted_args("--codeql=built", semmle_code="/somewhere")
+        self.assertEqual(args.codeql, "built")
 
     def test_the_last_codeql_wins(self):
-        self.assertEqual(sorted_args("--codeql=host", "--codeql=built").codeql, "built")
+        args = sorted_args("--codeql=host", "--codeql=built", semmle_code="/somewhere")
+        self.assertEqual(args.codeql, "built")
 
     def test_all_checks_is_asked_for_by_either_spelling(self):
         self.assertTrue(sorted_args("--all-checks").all)
@@ -66,10 +107,6 @@ class TestParseArgs(unittest.TestCase):
         self.assertIn("--codeql=built", args.flags)
         self.assertNotIn("--", args.flags)
 
-    def test_an_empty_argument_is_ignored(self):
-        # One of these comes of a caller interpolating a variable that was never set.
-        self.assertEqual(sorted_args("", "test").tests, ["test"])
-
     def test_a_test_path_containing_a_space_stays_one_argument(self):
         self.assertEqual(sorted_args("some dir/test").tests, ["some dir/test"])
 
@@ -79,45 +116,93 @@ class TestParseArgs(unittest.TestCase):
         An argument list carries this; a whitespace-separated string cannot, as there
         is nothing left in it to tell a separator from part of a value.
         """
-        self.assertEqual(sorted_args("EXTRA=a b").env, ["EXTRA=a b"])
+        self.assertEqual(sorted_args("EXTRA=a b").env, {"EXTRA": "a b"})
 
     def test_sorts_a_whole_command_line_at_once(self):
         args = sorted_args(
             "-j2", "CPUS=4", "ql/test", "+", "--extra-check=--check-diff"
         )
         self.assertEqual(args.flags, ["-j2"])
-        self.assertEqual(args.env, ["CPUS=4"])
+        self.assertEqual(args.env, {"CPUS": "4"})
         self.assertEqual(args.tests, ["ql/test"])
         self.assertEqual(args.extra_checks, ["--check-diff"])
         self.assertTrue(args.all)
 
 
-class TestEnvValue(unittest.TestCase):
+class TestEmptyArguments(unittest.TestCase):
+    """Dropped by `main` before parsing, which is earlier than it looks.
+
+    Filtering these inside the sorting loop instead would leave them in front of
+    `argparse`, and an empty argument ahead of a `--` stops the separator being
+    recognised, so the `--` would reach `codeql test run` as an argument of its own.
+    """
+
+    def test_an_empty_argument_is_ignored(self):
+        # One of these comes of a caller interpolating a variable that was never set.
+        self.assertEqual(paths("", "some/test"), ["some/test"])
+
+    def test_an_empty_argument_does_not_disturb_a_separator(self):
+        self.assertEqual(flags("", "--", "--check-databases")[-1], "--check-databases")
+        self.assertNotIn("--", flags("", "--", "--check-databases"))
+
+
+class TestSettings(unittest.TestCase):
+    """`RAM_PER_THREAD` and `CPUS` are read back after assignments are applied.
+
+    Resolution is what these pin down, so they go through `main`: an assignment and an
+    inherited variable only meet once `main` has merged them.
+    """
+
     def test_prefers_a_test_argument(self):
-        args = sorted_args("CPUS=4")
-        with mock.patch.dict(os.environ, {"CPUS": "8"}):
-            self.assertEqual(codeql_test_run.env_value(args, "CPUS", "1"), "4")
+        self.assertIn("-j4", flags("CPUS=4", environ={"CPUS": "8"}))
 
     def test_falls_back_to_the_environment(self):
-        with mock.patch.dict(os.environ, {"CPUS": "8"}):
-            self.assertEqual(codeql_test_run.env_value(empty_args(), "CPUS", "1"), "8")
+        self.assertIn("-j8", flags(environ={"CPUS": "8"}))
 
     def test_falls_back_to_the_default(self):
-        with mock.patch.dict(os.environ, {}, clear=True):
-            self.assertEqual(codeql_test_run.env_value(empty_args(), "CPUS", "1"), "1")
+        self.assertIn(f"-j{os.cpu_count()}", flags())
 
     def test_the_last_assignment_wins(self):
-        args = sorted_args("CPUS=4", "CPUS=2")
-        self.assertEqual(codeql_test_run.env_value(args, "CPUS", "1"), "2")
+        self.assertIn("-j2", flags("CPUS=4", "CPUS=2"))
 
-    def test_an_empty_value_does_not_count_as_a_setting(self):
-        args = sorted_args("CPUS=")
-        with mock.patch.dict(os.environ, {"CPUS": "8"}):
-            self.assertEqual(codeql_test_run.env_value(args, "CPUS", "1"), "8")
+    def test_an_empty_value_falls_back_to_the_default(self):
+        """An empty value does not override, so a later one erases an earlier setting.
 
-    def test_a_value_containing_a_space_survives(self):
-        args = sorted_args("EXTRA=a b")
-        self.assertEqual(codeql_test_run.env_value(args, "EXTRA", "none"), "a b")
+        Compared against a run that never mentions the setting, so this pins the
+        behaviour without restating what the default happens to be. It is about
+        resolution only: see below for what the child is given.
+        """
+        self.assertEqual(flags("CPUS=4", "CPUS="), flags())
+
+    def test_an_empty_assignment_still_reaches_the_child(self):
+        """Falling back to the default is not the same as the assignment being dropped.
+
+        `RAM_PER_THREAD` and `CPUS` are read back out of the environment, so an empty
+        one reads as unset and the default stands. Every assignment is exported either
+        way, so the child sees the variable set and empty rather than absent, and a
+        variable this script does not read has no other behaviour to fall back to.
+        """
+        self.assertEqual(child_environ("CPUS=")["CPUS"], "")
+        self.assertNotIn("CPUS", child_environ())
+
+    def test_an_assignment_reaches_the_child(self):
+        self.assertEqual(child_environ("EXTRA=a b")["EXTRA"], "a b")
+
+    def test_ram_is_per_thread(self):
+        self.assertIn("--ram=200", flags("CPUS=2", "RAM_PER_THREAD=100"))
+
+
+class TestDefaults(unittest.TestCase):
+    def test_the_current_directory_is_the_default_test(self):
+        self.assertEqual(paths(), ["."])
+
+    def test_a_named_test_replaces_the_default(self):
+        self.assertEqual(paths("ql/test/Foo"), ["ql/test/Foo"])
+
+    def test_an_offered_check_becomes_a_flag_once_asked_for(self):
+        self.assertIn(
+            "--check-databases", flags("--extra-check=--check-databases", "+")
+        )
 
 
 if __name__ == "__main__":
