@@ -15,14 +15,14 @@ import codeql_test_run
 
 
 def empty_args():
-    """What `main` builds before sorting anything into it."""
-    return codeql_test_run.Arguments(codeql="host")
+    """A command line carrying nothing but the language `main` reads off the front."""
+    return sorted_args()
 
 
 def sorted_args(*argv):
-    args = empty_args()
-    args.parse(list(argv))
-    return args
+    """Sort a command line, supplying the language that always precedes it."""
+    with mock.patch.object(codeql_test_run, "SEMMLE_CODE", None):
+        return codeql_test_run.parse_arguments(["alanguage", *argv])
 
 
 class TestParseArgs(unittest.TestCase):
@@ -59,10 +59,12 @@ class TestParseArgs(unittest.TestCase):
         self.assertFalse(held.all)
 
     def test_a_double_dash_hands_everything_after_it_to_codeql(self):
-        # Standard `--`: past it, an option is the caller's business and not ours.
+        # Standard `--`: past it, an option is the caller's business and not ours. The
+        # separator itself is ours, though, so it is not passed on as well.
         args = sorted_args("--", "--codeql=built")
         self.assertEqual(args.codeql, "host")
         self.assertIn("--codeql=built", args.flags)
+        self.assertNotIn("--", args.flags)
 
     def test_an_empty_argument_is_ignored(self):
         # One of these comes of a caller interpolating a variable that was never set.
@@ -94,28 +96,28 @@ class TestEnvValue(unittest.TestCase):
     def test_prefers_a_test_argument(self):
         args = sorted_args("CPUS=4")
         with mock.patch.dict(os.environ, {"CPUS": "8"}):
-            self.assertEqual(args.env_value("CPUS", "1"), "4")
+            self.assertEqual(codeql_test_run.env_value(args, "CPUS", "1"), "4")
 
     def test_falls_back_to_the_environment(self):
         with mock.patch.dict(os.environ, {"CPUS": "8"}):
-            self.assertEqual(empty_args().env_value("CPUS", "1"), "8")
+            self.assertEqual(codeql_test_run.env_value(empty_args(), "CPUS", "1"), "8")
 
     def test_falls_back_to_the_default(self):
         with mock.patch.dict(os.environ, {}, clear=True):
-            self.assertEqual(empty_args().env_value("CPUS", "1"), "1")
+            self.assertEqual(codeql_test_run.env_value(empty_args(), "CPUS", "1"), "1")
 
     def test_the_last_assignment_wins(self):
         args = sorted_args("CPUS=4", "CPUS=2")
-        self.assertEqual(args.env_value("CPUS", "1"), "2")
+        self.assertEqual(codeql_test_run.env_value(args, "CPUS", "1"), "2")
 
     def test_an_empty_value_does_not_count_as_a_setting(self):
         args = sorted_args("CPUS=")
         with mock.patch.dict(os.environ, {"CPUS": "8"}):
-            self.assertEqual(args.env_value("CPUS", "1"), "8")
+            self.assertEqual(codeql_test_run.env_value(args, "CPUS", "1"), "8")
 
     def test_a_value_containing_a_space_survives(self):
         args = sorted_args("EXTRA=a b")
-        self.assertEqual(args.env_value("EXTRA", "none"), "a b")
+        self.assertEqual(codeql_test_run.env_value(args, "EXTRA", "none"), "a b")
 
 
 if __name__ == "__main__":
