@@ -8,7 +8,7 @@ on:
       - "misc/just/**"
       - "misc/scripts/models-as-data/*.py"
       - "*.bazel*"
-      - .github/workflows/codegen.yml
+      - .github/workflows/python-tooling.yml
       - .pre-commit-config.yaml
     branches:
       - main
