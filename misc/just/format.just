@@ -1,14 +1,10 @@
 import "build.just"
 
-_ql_formatter := if SEMMLE_CODE != "" { '"$SEMMLE_CODE/target/intree/codeql-nolang/codeql"' } else { "codeql" }
-
-_ql_args := "query format --in-place"
+_ql_formatter := (if SEMMLE_CODE != "" { '"$SEMMLE_CODE/target/intree/codeql-nolang/codeql"' } else { "codeql" }) + " query format --in-place"
 
 _py_formatter := if SEMMLE_CODE != "" { "uv run black" } else { "black" }
 
-_cpp_formatter := if SEMMLE_CODE != "" { "uv run clang-format" } else { "clang-format" }
-
-_cpp_args := "-i"
+_cpp_formatter := (if SEMMLE_CODE != "" { "uv run clang-format" } else { "clang-format" }) + " -i"
 
 # The `buildifier` target formats a whole workspace and so cannot take a path, so its
 # binary is driven directly. bazel is asked from this repository's root even when it sits
@@ -20,8 +16,9 @@ _bazel_formatter := (if SEMMLE_CODE != "" { '"$SEMMLE_CODE/tools/bazel"' } else 
 
 _bazel_args := "-mode=fix -lint=fix"
 
-# Held apart from the invocation because only output is at stake, which is what the banner
-# leaves out. bazel takes these after the target as readily as before it.
+# These have to sit between the target and `--`, which is what keeps `_bazel_args` from
+# folding into the invocation the way the other formatters' arguments do. Only output is
+# at stake here, which is what the banner leaves out.
 _bazel_quiet := "--noshow_progress --ui_event_filters=,+error,+fail"
 
 # Keep in step with the `buildifier` target's own exclusions, or `just format` rewrites
@@ -52,26 +49,26 @@ _bazel_accounting := ': applied fixes, [0-9]+ warnings left$'
 [no-exit-message]
 [positional-arguments]
 @_format_ql +ARGS: (_maybe_build_dist "nolang")
-    echo "$CMD_BEGIN-> {{ _ql_formatter }} {{ _ql_args }} -- $*$CMD_END" >&2
-    {{ py }} "{{ source_dir() }}/run_on_files.py" --drop '^Formatting ' --drop '^No change for ' "*.ql,*.qll" {{ _ql_formatter }} {{ _ql_args }} -v -- "$@"
+    echo "$CMD_BEGIN-> "{{ quote(_ql_formatter) }}" -- $*$CMD_END" >&2
+    {{ py }} "{{ source_dir() }}/run_on_files.py" --drop '^Formatting ' --drop '^No change for ' "*.ql,*.qll" {{ _ql_formatter }} -v -- "$@"
 
 [no-cd]
 [no-exit-message]
 [positional-arguments]
 @_format_py *ARGS=".":
-    echo "$CMD_BEGIN-> {{ _py_formatter }} $*$CMD_END" >&2
+    echo "$CMD_BEGIN-> "{{ quote(_py_formatter) }}" $*$CMD_END" >&2
     {{ _py_formatter }} "$@"
 
 [no-cd]
 [no-exit-message]
 [positional-arguments]
 @_format_cpp *ARGS=".":
-    echo "$CMD_BEGIN-> {{ _cpp_formatter }} {{ _cpp_args }} -- $*$CMD_END" >&2
-    {{ py }} "{{ source_dir() }}/run_on_files.py" "*.h,*.cpp" {{ _cpp_formatter }} {{ _cpp_args }} -- "$@"
+    echo "$CMD_BEGIN-> "{{ quote(_cpp_formatter) }}" -- $*$CMD_END" >&2
+    {{ py }} "{{ source_dir() }}/run_on_files.py" "*.h,*.cpp" {{ _cpp_formatter }} -- "$@"
 
 [no-cd]
 [no-exit-message]
 [positional-arguments]
 @_format_bazel *ARGS=".":
-    echo "$CMD_BEGIN-> {{ _bazel_formatter }} -- {{ _bazel_args }} -- $*$CMD_END" >&2
+    echo "$CMD_BEGIN-> "{{ quote(_bazel_formatter + " -- " + _bazel_args) }}" -- $*$CMD_END" >&2
     {{ py }} "{{ source_dir() }}/run_on_files.py" --absolute --chdir {{ _bazel_workspace }} --within {{ _bazel_workspace }} --drop '{{ _bazel_accounting }}' --exclude '{{ _bazel_excluded }}' "{{ _bazel_names }}" {{ _bazel_formatter }} {{ _bazel_quiet }} -- {{ _bazel_args }} -v -- "$@"
