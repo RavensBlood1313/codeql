@@ -10,6 +10,7 @@ abbreviation) turns the offered ones on. Per-language justfiles supply the offer
 the caller supplies the switch, so the two are separate options rather than one.
 """
 
+import argparse
 import dataclasses
 import os
 import re
@@ -23,7 +24,6 @@ CMD_BEGIN = os.environ.get("CMD_BEGIN", "")
 CMD_END = os.environ.get("CMD_END", "")
 SEMMLE_CODE = os.environ.get("SEMMLE_CODE")
 
-EXTRA_CHECK_PREFIX = "--extra-check="
 ENV_RE = re.compile(r"^[A-Z_][A-Z_0-9]*=.*$")
 
 
@@ -41,15 +41,37 @@ def error(message):
     print(f"{ERROR}{message}", file=sys.stderr)
 
 
+class _Parser(argparse.ArgumentParser):
+    """An `argparse` parser that fails the way the rest of this script does.
+
+    The default reports to `stderr` in its own format and exits 2, which would arrive
+    in a `just` banner unprefixed and alongside a usage line naming this script rather
+    than the recipe the caller actually typed.
+    """
+
+    def error(self, message):
+        error(message)
+        raise SystemExit(1)
+
+
+def build_parser():
+    # `+` can be an option string only because it is also a prefix character. `-h` and
+    # `--help` are left unclaimed so that they reach `codeql test run`.
+    parser = _Parser(add_help=False, allow_abbrev=False, prefix_chars="-+")
+    parser.add_argument("--codeql")
+    parser.add_argument("--extra-check", action="append", dest="extra_checks")
+    parser.add_argument("--all-checks", "+", action="store_true", dest="all")
+    return parser
+
+
 @dataclasses.dataclass
 class Arguments:
     """A command line sorted into the kinds that are handled differently.
 
-    Sorted by hand rather than by `argparse`, which could own the three options named
-    below but none of the rest: every flag not named here belongs to `codeql test run`
-    and has to survive untouched, `+` is not a spelling `argparse` has, and `CPUS=4` and
-    `ql/test` are both positionals told apart only by shape. Handing it the half it can
-    take would leave this loop in place for the other half.
+    `argparse` owns the three options this script acts on itself. Everything else
+    belongs to `codeql test run` and has to survive untouched, which is what
+    `parse_known_args` hands back, and what is sorted by shape below: a test path and
+    a `CPUS=4` are both positionals, told apart only by how they look.
     """
 
     codeql: str = dataclasses.field(
@@ -62,19 +84,19 @@ class Arguments:
     extra_checks: list = dataclasses.field(default_factory=list)
 
     def parse(self, argv):
-        """Sort arguments into tests, flags and environment assignments."""
-        for arg in argv:
-            if not arg:
-                # an empty argument can come from a caller interpolating an unset
-                # variable
-                continue
-            if arg.startswith(EXTRA_CHECK_PREFIX):
-                self.extra_checks.append(arg[len(EXTRA_CHECK_PREFIX) :])
-            elif arg.startswith("--codeql="):
-                self.codeql = arg.split("=", 1)[1]
-            elif arg in ("+", "--all-checks"):
-                self.all = True
-            elif arg.startswith("-"):
+        """Sort arguments into tests, flags and environment assignments.
+
+        Additive, because `main` parses a second time to apply the checks held back
+        until `--all-checks` asked for them.
+        """
+        # An empty argument can come from a caller interpolating an unset variable.
+        known, rest = build_parser().parse_known_args([arg for arg in argv if arg])
+        if known.codeql:
+            self.codeql = known.codeql
+        self.all = self.all or known.all
+        self.extra_checks += known.extra_checks or []
+        for arg in rest:
+            if arg.startswith("-"):
                 self.flags.append(arg)
             elif ENV_RE.match(arg):
                 self.env.append(arg)

@@ -58,6 +58,12 @@ class TestParseArgs(unittest.TestCase):
         self.assertEqual(held.flags, [])
         self.assertFalse(held.all)
 
+    def test_a_double_dash_hands_everything_after_it_to_codeql(self):
+        # Standard `--`: past it, an option is the caller's business and not ours.
+        args = sorted_args("--", "--codeql=built")
+        self.assertEqual(args.codeql, "host")
+        self.assertIn("--codeql=built", args.flags)
+
     def test_an_empty_argument_is_ignored(self):
         # One of these comes of a caller interpolating a variable that was never set.
         self.assertEqual(sorted_args("", "test").tests, ["test"])
@@ -74,7 +80,9 @@ class TestParseArgs(unittest.TestCase):
         self.assertEqual(sorted_args("EXTRA=a b").env, ["EXTRA=a b"])
 
     def test_sorts_a_whole_command_line_at_once(self):
-        args = sorted_args("-j2", "CPUS=4", "ql/test", "+", "--extra-check=--check-diff")
+        args = sorted_args(
+            "-j2", "CPUS=4", "ql/test", "+", "--extra-check=--check-diff"
+        )
         self.assertEqual(args.flags, ["-j2"])
         self.assertEqual(args.env, ["CPUS=4"])
         self.assertEqual(args.tests, ["ql/test"])
