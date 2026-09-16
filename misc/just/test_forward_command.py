@@ -98,6 +98,39 @@ class TestImplements(unittest.TestCase):
         )
         self.assertEqual(found["name"], "test")
 
+    def test_follows_an_alias_into_a_forwarding_justfile(self):
+        # The recipe named after the alias forwards, so the answer is the root one --
+        # and that is named after the verb, which is the target rather than the alias.
+        # Reaching here needs the alias to be a verb's own name, the only spelling the
+        # forwarder ever passes.
+        found = forward_command.implements(
+            dump(
+                recipe("build", dependencies=[forward_command.FORWARD_RECIPE]),
+                recipe(f"{forward_command.ROOT_PREFIX}build"),
+                aliases={"format": alias("format", "build")},
+            ),
+            "format",
+            0,
+        )
+        self.assertEqual(found["name"], f"{forward_command.ROOT_PREFIX}build")
+
+    def test_does_not_settle_on_a_root_recipe_named_after_the_alias(self):
+        # `_root_format` exists in most repository roots, so looking the alias up
+        # unresolved finds a real recipe rather than nothing: the wrong directory's
+        # answer, run in earnest. The version of this without one returns None, which
+        # is indistinguishable from a justfile that does not implement the verb at all.
+        found = forward_command.implements(
+            dump(
+                recipe("build", dependencies=[forward_command.FORWARD_RECIPE]),
+                recipe(f"{forward_command.ROOT_PREFIX}build"),
+                recipe(f"{forward_command.ROOT_PREFIX}format"),
+                aliases={"format": alias("format", "build")},
+            ),
+            "format",
+            0,
+        )
+        self.assertEqual(found["name"], f"{forward_command.ROOT_PREFIX}build")
+
     def test_passes_over_a_private_recipe(self):
         self.assertIsNone(
             forward_command.implements(dump(recipe("test", private=True)), "test", 0)
