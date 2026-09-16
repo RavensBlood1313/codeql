@@ -21,10 +21,11 @@ _bazel_args := "-mode=fix -lint=fix"
 # at stake here, which is what the banner leaves out.
 _bazel_quiet := "--noshow_progress --ui_event_filters=,+error,+fail"
 
-# Keep in step with the `buildifier` target's own exclusions, or `just format` rewrites
-# what pre-commit and CI deliberately leave alone. Patterns match the path as walked, so
-# one naming a directory has to cover both how it is reached and how it is walked.
-_bazel_names := "BUILD,WORKSPACE,*.bazel,*.bzl,*.sky"
+# Keep both in step with the `buildifier` target. The names are what it recognises walking a
+# workspace, a check it skips for paths handed to it, so anything extra here is rewritten
+# regardless. Exclusions match the path as walked, so one naming a directory has to cover
+# both how it is reached and how it is walked.
+_bazel_names := "BUILD,WORKSPACE,*.bazel,*.bzl,*.sky,*.star"
 
 _bazel_excluded := ".git/*,*/.git/*,*misc/bazel/3rdparty/*_deps/*"
 
