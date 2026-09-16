@@ -28,8 +28,9 @@ _bazel_names := "BUILD,WORKSPACE,*.bazel,*.bzl,*.sky"
 
 _bazel_excluded := ".git/*,*/.git/*,*misc/bazel/3rdparty/*_deps/*"
 
-# buildifier only names what it rewrote if it also accounts for every file it did not.
-_bazel_accounting := ': applied fixes, [0-9]+ warnings left$'
+# `-v` accounts for every file, so the empty tally is dropped. A non-zero one is kept: it is
+# the only notice of warnings buildifier could not fix, as the exit code stays 0 regardless.
+_bazel_accounting := ': applied fixes, 0 warnings left$'
 
 # These formatters take files rather than directories, so `run_on_files.py` collects them
 # and passes them positionally, which is what lets paths contain spaces. `codeql query
