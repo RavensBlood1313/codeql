@@ -20,8 +20,11 @@ error := f'{{ style("error") }}error{{ NORMAL }}: '
 # the terminal from stdin, so it answers when stdout is piped. The arithmetic is in the
 # shell because just has no integers.
 #
-# With no terminal the value is non-numeric and this falls back to the 56 dashes used
-# before. That is a branch, not a platform test: just runs `sh` everywhere.
+# With no terminal the value is non-numeric and this falls back to a fixed 57 columns.
+# That is a branch, not a platform test: just runs `sh` everywhere.
+#
+# The leading `#` is in `cmd_sep`, not in the rule, so the line stays a comment whatever
+# `JUST_CMD_RULE` is set to.
 #
 # Exported and preferred over measuring: `shell()` runs on every parse, so a forwarded
 # verb would otherwise re-measure in every child it spawns, and `if` is lazy in its
@@ -30,7 +33,7 @@ error := f'{{ style("error") }}error{{ NORMAL }}: '
 _rule := if env('JUST_CMD_RULE', '') != '' { env('JUST_CMD_RULE', '') } else { shell('''
     w=$(stty size 2>/dev/null | cut -d" " -f2)
     case "$w" in '' | *[!0-9]*) w=57 ;; esac
-    printf "%*s" $((w - 1)) "" | tr " " -
+    printf "%*s" $((w - 1)) "" | tr " " '#'
 ''') }
 
 export JUST_CMD_RULE := _rule

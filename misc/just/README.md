@@ -164,6 +164,6 @@ counting measurements. Presetting `JUST_CMD_RULE` skips all of them, and is also
 fix the width in CI or in a recording.
 
 With no terminal to ask — a pipe, a log, a shell without `stty` — it falls back to a
-fixed 56 characters, so anything not attached to a terminal looks as it always did. That
-is one branch rather than a platform test: `just` runs `sh` everywhere, so Windows takes
+fixed 57 columns, so logs and CI output are the same width every time. That is one
+branch rather than a platform test: `just` runs `sh` everywhere, so Windows takes
 whichever arm fits rather than a path of its own.
