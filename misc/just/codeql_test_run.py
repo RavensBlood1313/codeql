@@ -5,8 +5,9 @@ Called from just recipes as:
     python3 codeql_test_run.py LANGUAGE [ARG...]
 
 Arguments are already split by `just` (see `set lists`), so each one is taken verbatim.
-`--all-checks=FLAG` contributes FLAG to the set of extra checks that `--all-checks` (or
-its `+` abbreviation) turns on.
+`--extra-check=FLAG` offers FLAG as a check to run, and `--all-checks` (or its `+`
+abbreviation) turns the offered ones on. Per-language justfiles supply the offers and
+the caller supplies the switch, so the two are separate options rather than one.
 """
 
 import dataclasses
@@ -22,7 +23,7 @@ CMD_BEGIN = os.environ.get("CMD_BEGIN", "")
 CMD_END = os.environ.get("CMD_END", "")
 SEMMLE_CODE = os.environ.get("SEMMLE_CODE")
 
-ALL_CHECKS_PREFIX = "--all-checks="
+EXTRA_CHECK_PREFIX = "--extra-check="
 ENV_RE = re.compile(r"^[A-Z_][A-Z_0-9]*=.*$")
 
 
@@ -44,10 +45,11 @@ def error(message):
 class Arguments:
     """A command line sorted into the kinds that are handled differently.
 
-    Sorted by hand rather than by `argparse`, which cannot express this grammar: every
-    flag not named here belongs to `codeql test run` and has to survive untouched, and
-    `--all-checks` is both a flag and an assignment. Asking `argparse` for the latter
-    makes a bare `--all-checks` swallow the test path after it.
+    Sorted by hand rather than by `argparse`, which could own the three options named
+    below but none of the rest: every flag not named here belongs to `codeql test run`
+    and has to survive untouched, `+` is not a spelling `argparse` has, and `CPUS=4` and
+    `ql/test` are both positionals told apart only by shape. Handing it the half it can
+    take would leave this loop in place for the other half.
     """
 
     codeql: str = dataclasses.field(
@@ -57,7 +59,7 @@ class Arguments:
     tests: list = dataclasses.field(default_factory=list)
     flags: list = dataclasses.field(default_factory=list)
     env: list = dataclasses.field(default_factory=list)
-    all_checks: list = dataclasses.field(default_factory=list)
+    extra_checks: list = dataclasses.field(default_factory=list)
 
     def parse(self, argv):
         """Sort arguments into tests, flags and environment assignments."""
@@ -66,8 +68,8 @@ class Arguments:
                 # an empty argument can come from a caller interpolating an unset
                 # variable
                 continue
-            if arg.startswith(ALL_CHECKS_PREFIX):
-                self.all_checks.append(arg[len(ALL_CHECKS_PREFIX) :])
+            if arg.startswith(EXTRA_CHECK_PREFIX):
+                self.extra_checks.append(arg[len(EXTRA_CHECK_PREFIX) :])
             elif arg.startswith("--codeql="):
                 self.codeql = arg.split("=", 1)[1]
             elif arg in ("+", "--all-checks"):
@@ -99,7 +101,7 @@ def main():
     args = Arguments()
     args.parse(rest)
     if args.all:
-        args.parse(args.all_checks)
+        args.parse(args.extra_checks)
 
     if not SEMMLE_CODE and args.codeql in ("build", "built"):
         error(

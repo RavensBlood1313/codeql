@@ -52,8 +52,8 @@ class TestParseArgs(unittest.TestCase):
         self.assertTrue(sorted_args("+").all)
 
     def test_an_extra_check_is_held_back_until_it_is_asked_for(self):
-        held = sorted_args("--all-checks=--check-databases")
-        self.assertEqual(held.all_checks, ["--check-databases"])
+        held = sorted_args("--extra-check=--check-databases")
+        self.assertEqual(held.extra_checks, ["--check-databases"])
         # Held back means held back: it is not a flag until `--all-checks` arrives.
         self.assertEqual(held.flags, [])
         self.assertFalse(held.all)
@@ -74,11 +74,11 @@ class TestParseArgs(unittest.TestCase):
         self.assertEqual(sorted_args("EXTRA=a b").env, ["EXTRA=a b"])
 
     def test_sorts_a_whole_command_line_at_once(self):
-        args = sorted_args("-j2", "CPUS=4", "ql/test", "+", "--all-checks=--check-diff")
+        args = sorted_args("-j2", "CPUS=4", "ql/test", "+", "--extra-check=--check-diff")
         self.assertEqual(args.flags, ["-j2"])
         self.assertEqual(args.env, ["CPUS=4"])
         self.assertEqual(args.tests, ["ql/test"])
-        self.assertEqual(args.all_checks, ["--check-diff"])
+        self.assertEqual(args.extra_checks, ["--check-diff"])
         self.assertTrue(args.all)
 
 
