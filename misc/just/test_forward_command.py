@@ -241,10 +241,6 @@ class TestInvocationPath(unittest.TestCase):
         )
 
 
-if __name__ == "__main__":
-    unittest.main()
-
-
 class TestFindJustfilesAbove(unittest.TestCase):
     """The two shapes a consuming root can have, both of which the README promises.
 
@@ -472,3 +468,7 @@ class TestImportingDoesNotChangeARecipe(unittest.TestCase):
             self.recipes(self.outer)["_root_format"],
             self.recipes(self.inner)["_root_format"],
         )
+
+
+if __name__ == "__main__":
+    unittest.main()
