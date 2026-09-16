@@ -1,3 +1,8 @@
+# The first definition of a variable wins, not the last, so this order is what lets the
+# internal file set `SEMMLE_CODE` while the stub is the fallback when it is absent.
+# Swapped, the stub wins even where the real file exists and that checkout then behaves
+# as if it were external. Nothing here can catch that: with the file absent, as it
+# always is in this repository, both orders evaluate the same.
 import? '../../../semmle-code.just' # internal repo just file, if present
 import 'semmle-code-stub.just'
 
