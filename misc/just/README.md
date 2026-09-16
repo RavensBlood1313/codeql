@@ -162,6 +162,14 @@ Nothing is lost by this, as a banner has never been something to paste: the echo
 carried an unexpanded `"$@"`, which matches no file in another shell, so pasting one
 formatted nothing and exited 0.
 
+What a formatter says for itself is filtered down to what happened, as several name every
+file they considered and most of them were left alone. One such line is kept on purpose:
+buildifier's count of the warnings it could not fix, which is the only notice of them,
+since it reports no detail in fix mode and exits 0 whether or not any remain. That tally
+grows with the tree and is mostly lint about docstrings. Finding it tiresome is a reason
+to configure what buildifier lints, never to widen the filter back over it, which would
+take the warnings worth having along with the rest.
+
 Measuring the width means a `shell()` call, and that runs on every parse, so the result
 is exported as `JUST_CMD_RULE` and an inherited value is preferred to measuring again.
 
