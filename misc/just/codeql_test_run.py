@@ -74,9 +74,16 @@ def parse_arguments():
     hands back, and what is sorted by shape here: a test path and a `CPUS=4` are both
     positionals, told apart only by how they look.
     """
-    # An empty argument can come from a caller interpolating an unset variable.
-    args, rest = build_parser().parse_known_args()
+    p = build_parser()
+    args, rest = p.parse_known_args()
+    if args.codeql in ("build", "built") and not SEMMLE_CODE:
+        p.error(
+            "Using `--codeql=build` or `--codeql=built` requires working "
+            "with the internal repository"
+        )
+    
     for arg in rest:
+        # An empty argument can come from a caller interpolating an unset variable.
         if not arg:
             pass
         elif arg.startswith("-"):
@@ -113,13 +120,6 @@ def main():
         # offered check lands exactly where the same flag typed by hand would.
         sys.argv[1:1] = args.extra_checks
         args = parse_arguments()
-
-    if not SEMMLE_CODE and args.codeql in ("build", "built"):
-        error(
-            "Using `--codeql=build` or `--codeql=built` requires working "
-            "with the internal repository"
-        )
-        return 1
 
     if not args.tests:
         args.tests.append(".")
