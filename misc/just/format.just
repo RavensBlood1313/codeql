@@ -6,16 +6,17 @@ _py_formatter := if SEMMLE_CODE != "" { "uv run black" } else { "black" }
 
 _cpp_formatter := if SEMMLE_CODE != "" { "uv run clang-format" } else { "clang-format" }
 
-# The `buildifier` bazel target always covers the whole workspace, so the binary behind
-# it is used instead and given paths. bazel is asked from the root of this repository,
-# even when it sits inside another, and the files are bounded to that root as well: each
-# repository then formats its own bazel files with the buildifier version it pins, and a
-# verb aimed at a tree spanning both is answered once by each. This is the opposite of
-# building, where a target needs the enclosing workspace to resolve at all, hence
-# `_bazel` in build.just going the other way.
+# The `buildifier` bazel target always covers the whole workspace, so the binary it wraps
+# is used instead and given paths. Naming that binary by its external label rather than
+# through a local alias keeps it valid from any workspace. bazel is asked from the root of
+# this repository, even when it sits inside another, and the files are bounded to that root
+# as well: each repository then formats its own bazel files with the buildifier version it
+# pins, and a verb aimed at a tree spanning both is answered once by each. This is the
+# opposite of building, where a target needs the enclosing workspace to resolve at all,
+# hence `_bazel` in build.just going the other way.
 _bazel_workspace := quote(parent_directory(parent_directory(source_dir())))
 
-_bazel_formatter := "bazel run --noshow_progress --ui_event_filters=,+error,+fail //misc/bazel/buildifier:binary --"
+_bazel_formatter := "bazel run --noshow_progress --ui_event_filters=,+error,+fail @buildifier_prebuilt//:buildifier --"
 
 # bazel files are named rather than suffixed, and buildifier has no exclude option of its
 # own, so the files skipped by the target above are skipped here too. That target formats
