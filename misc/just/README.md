@@ -149,3 +149,17 @@ to be understood by all of them. That is fine when they speak the same language,
 a broad `just test .` reaches bazel and pytest suites alike, and a flag meant for one of
 them will fail on the other. It fails rather than being quietly ignored, so the answer
 is to aim the verb at something narrower.
+
+# Command separators
+
+Commands are echoed between rules that span the terminal. The width is measured once, by
+the outermost `just`, and handed down to everything it spawns in `JUST_CMD_RULE`.
+Measuring is why: `shell()` runs on every parse, so a verb reaching a dozen justfiles
+would otherwise ask a dozen times, and a single measurement is also one nothing can
+disagree with. Setting `JUST_CMD_RULE` pins the rule rather than measuring it, which is
+how to fix the width in CI or in a recording.
+
+With no terminal to ask — a pipe, a log, a shell without `stty` — it falls back to a
+fixed 56 characters, so anything not attached to a terminal looks as it always did. That
+is one branch rather than a platform test: `just` runs `sh` everywhere, so Windows takes
+whichever arm fits rather than a path of its own.

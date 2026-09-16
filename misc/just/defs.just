@@ -13,7 +13,28 @@ export PATH_SEP := if os() == "windows" { ";" } else { ":" }
 export JUST_EXECUTABLE := just_executable()
 
 error := f'{{ style("error") }}error{{ NORMAL }}: '
-cmd_sep := "\n#--------------------------------------------------------\n"
+
+# The rule `cmd_sep` draws, sized to the terminal.
+#
+# `stty` rather than `tput`: it needs no terminfo, so it survives `TERM=dumb`, and reads
+# the terminal from stdin, so it answers when stdout is piped. The arithmetic is in the
+# shell because just has no integers.
+#
+# With no terminal the value is non-numeric and this falls back to the 56 dashes used
+# before. That is a branch, not a platform test: just runs `sh` everywhere.
+#
+# Measured once and inherited: `shell()` runs on every parse, so a forwarded verb would
+# otherwise re-measure in every child it spawns, while `if` is lazy in its branches.
+# Setting `JUST_CMD_RULE` pins the rule and skips measuring.
+_rule := if env('JUST_CMD_RULE', '') != '' { env('JUST_CMD_RULE', '') } else { shell('''
+    w=$(stty size 2>/dev/null | cut -d" " -f2)
+    case "$w" in '' | *[!0-9]*) w=57 ;; esac
+    printf "%*s" $((w - 1)) "" | tr " " -
+''') }
+
+export JUST_CMD_RULE := _rule
+
+cmd_sep := "\n#" + _rule + "\n"
 export CMD_BEGIN := style("command") + cmd_sep
 export CMD_END := cmd_sep + NORMAL
 export JUST_ERROR := error
