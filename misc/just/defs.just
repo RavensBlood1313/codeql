@@ -65,7 +65,7 @@ default_db_checks := ['--check-databases', '--check-diff-informed', '--fail-on-t
 [no-exit-message]
 @_require_semmle_code:
     {{ if SEMMLE_CODE == "" { f'''
-        echo "{error} running this recipe requires doing so from an internal repository checkout" >&2
+        echo "{{ error }}running this recipe requires doing so from an internal repository checkout" >&2
         exit 1
     ''' } else { "" } }}
 
