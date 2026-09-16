@@ -57,11 +57,10 @@ therefore reads its default `.` as the whole repository rather than the director
 caller is in, so one that does its own work needs `[no-cd]` itself.
 
 Being a recipe like any other, a `_root_<verb>` is inherited by a justfile importing the
-one defining it, which is how the internal repository gets this one for free. It runs
-once either way, as the two spellings are the same recipe. A root that defines its own
-instead replaces it, and then both run, each over the files of the repository that
-defines it: bazel formatting asks bazel from the root of the checkout the files belong
-to, so that a repository formats its own files with its own pin.
+one defining it. It runs once either way, as the two spellings are the same recipe. A
+root that defines its own instead replaces it, and then both run, each over the files of
+the repository that defines it: bazel formatting asks bazel from the root of the checkout
+the files belong to, so that a repository formats its own files with its own pin.
 
 That last part is arranged by variables rather than by recipes. `set
 allow-duplicate-variables` in `defs.just` lets an importing justfile assign a variable
