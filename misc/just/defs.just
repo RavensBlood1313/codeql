@@ -15,6 +15,8 @@ export JUST_EXECUTABLE := just_executable()
 # MSYS2 rewrites arguments that look like paths as it hands them to a native program,
 # which mangles bazel's `//target` labels. Set once here rather than at each bazel call:
 # a call that forgets it works everywhere except Windows, which is where nobody looks.
+# The price of setting it once is that it covers every command a recipe runs, so a tool
+# that wants Windows path conversion has to ask for it back.
 export MSYS2_ARG_CONV_EXCL := if os() == "windows" { "*" } else { "" }
 
 error := f'{{ style("error") }}error{{ NORMAL }}: '
