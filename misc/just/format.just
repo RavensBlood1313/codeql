@@ -80,4 +80,4 @@ _format_cpp *ARGS=".":
 [no-exit-message]
 [positional-arguments]
 _format_bazel *ARGS=".":
-    {{ cmd_sep }}export MSYS2_ARG_CONV_EXCL="*"; {{ py }} "{{ source_dir() }}/run_on_files.py" --absolute --chdir {{ _bazel_workspace }} --within {{ _bazel_workspace }} --drop '{{ _bazel_accounting }}' --exclude '{{ _bazel_excluded }}' "{{ _bazel_names }}" {{ _bazel_formatter }} -mode=fix -lint=fix -v -- "$@"{{ cmd_sep }}
+    {{ cmd_sep }}{{ py }} "{{ source_dir() }}/run_on_files.py" --absolute --chdir {{ _bazel_workspace }} --within {{ _bazel_workspace }} --drop '{{ _bazel_accounting }}' --exclude '{{ _bazel_excluded }}' "{{ _bazel_names }}" {{ _bazel_formatter }} -mode=fix -lint=fix -v -- "$@"{{ cmd_sep }}

@@ -12,6 +12,11 @@ set allow-duplicate-variables
 export PATH_SEP := if os() == "windows" { ";" } else { ":" }
 export JUST_EXECUTABLE := just_executable()
 
+# MSYS2 rewrites arguments that look like paths as it hands them to a native program,
+# which mangles bazel's `//target` labels. Set once here rather than at each bazel call:
+# a call that forgets it works everywhere except Windows, which is where nobody looks.
+export MSYS2_ARG_CONV_EXCL := if os() == "windows" { "*" } else { "" }
+
 error := f'{{ style("error") }}error{{ NORMAL }}: '
 
 # The separator line, sized to the terminal.
