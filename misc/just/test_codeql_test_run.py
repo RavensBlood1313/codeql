@@ -129,23 +129,6 @@ class TestParseArgs(unittest.TestCase):
         self.assertTrue(args.all)
 
 
-class TestEmptyArguments(unittest.TestCase):
-    """Dropped by `main` before parsing, which is earlier than it looks.
-
-    Filtering these inside the sorting loop instead would leave them in front of
-    `argparse`, and an empty argument ahead of a `--` stops the separator being
-    recognised, so the `--` would reach `codeql test run` as an argument of its own.
-    """
-
-    def test_an_empty_argument_is_ignored(self):
-        # One of these comes of a caller interpolating a variable that was never set.
-        self.assertEqual(paths("", "some/test"), ["some/test"])
-
-    def test_an_empty_argument_does_not_disturb_a_separator(self):
-        self.assertEqual(flags("", "--", "--check-databases")[-1], "--check-databases")
-        self.assertNotIn("--", flags("", "--", "--check-databases"))
-
-
 class TestOfferedChecks(unittest.TestCase):
     """What a root offers and what `--all-checks` enables are separate things.
 

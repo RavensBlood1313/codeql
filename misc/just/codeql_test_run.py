@@ -117,8 +117,6 @@ def resolve_codeql(args: argparse.Namespace) -> Path:
 
 
 def main():
-    # An empty argument can come from a caller interpolating an unset variable.
-    sys.argv = [a for a in sys.argv if a]
     args = parse_arguments()
 
     if args.all:

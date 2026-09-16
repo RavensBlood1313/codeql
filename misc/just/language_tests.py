@@ -17,10 +17,7 @@ from pathlib import Path
 
 
 def main():
-    # Blank arguments are dropped before the count is taken: one comes of a caller
-    # interpolating a variable that was never set, and a list of nothing but those is no
-    # arguments at all rather than a root to find a justfile above.
-    argv = [arg for arg in sys.argv[1:] if arg]
+    argv = sys.argv[1:]
     if not argv:
         print("Usage: language_tests.py ROOT [ARG...]", file=sys.stderr)
         return 1
