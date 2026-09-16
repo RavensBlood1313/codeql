@@ -29,10 +29,8 @@ error := f'{{ style("error") }}error{{ NORMAL }}: '
 # That is a branch, not a platform test: just runs `sh` everywhere.
 #
 # `JUST_CMD_RULE` is the whole separator and lands in a shell script, so a hand-set value
-# that is not a shell comment gets run -- silently, with a zero exit, once per place the
-# separator appears. Hence the check rather than a warning in prose: a rule is one line by
-# construction, so demanding one line starting with `#` rejects every value that would
-# run, without having to describe what running looks like.
+# has to be a shell comment, every line of it, or it runs. Left unchecked: setting it at
+# all means being able to run commands already, so there is nothing to defend.
 #
 # Exported and preferred over measuring: `shell()` runs on every parse, so a forwarded
 # verb would otherwise re-measure in every child it spawns, and `if` is lazy in its
@@ -44,7 +42,7 @@ _rule := if _given_rule == '' { shell('''
     w=$(stty size 2>/dev/null | cut -d" " -f2)
     case "$w" in '' | *[!0-9]*) w=57 ;; esac
     printf "%*s" $w "" | tr " " '#'
-''') } else if _given_rule =~ '^#[^\n]*$' { _given_rule } else { error('JUST_CMD_RULE must be a single line starting with `#`') }
+''') } else { _given_rule }
 
 export JUST_CMD_RULE := _rule
 
