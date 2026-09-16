@@ -423,9 +423,13 @@ class TestImportingDoesNotChangeARecipe(unittest.TestCase):
     twice.
 
     Such a field is precisely the discriminator this code would otherwise want, so it
-    would arrive looking like a feature. The fixtures above cannot see any of this: they
-    are compared as subsets, which is right for reading a field by name and blind to a
-    field nobody thought to model.
+    would arrive looking like a feature. `namepath`, the closest thing to one today, is
+    a module path rather than a file one, and so reads identically for two top-level
+    recipes. The fixtures above cannot see any of this: they are compared as subsets,
+    which is right for reading a field by name and blind to a field nobody thought to
+    model. Nor would a repository notice, since defining a recipe of one's own only
+    moves it further from the imported one: the shape that would start running twice is
+    the one built here and kept nowhere else.
     """
 
     def recipes(self, justfile):
