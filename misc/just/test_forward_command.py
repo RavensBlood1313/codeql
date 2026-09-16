@@ -290,7 +290,11 @@ class TestFindJustfilesAbove(unittest.TestCase):
             "dump_justfile",
             side_effect=lambda justfile: (dumps[Path(justfile)], None),
         ):
-            return forward_command.find_justfiles_above("format", str(self.argument))
+            found, failed = forward_command.find_justfiles_above(
+                "format", str(self.argument)
+            )
+        self.assertFalse(failed)
+        return found
 
     def test_a_recipe_reached_under_two_spellings_runs_once(self):
         found = self.found(self.implementing(), self.implementing())
@@ -306,6 +310,77 @@ class TestFindJustfilesAbove(unittest.TestCase):
             self.implementing(doc="From here."),
         )
         self.assertEqual([justfile for justfile, _ in found], [self.inner, self.outer])
+
+
+class TestDiscoveryFailures(unittest.TestCase):
+    def test_dump_all_reports_every_failure(self):
+        justfiles = [Path("one/justfile"), Path("two/justfile"), Path("three/justfile")]
+        dumps = [(None, "bad one"), (dump(), None), (None, "bad three")]
+        with mock.patch.object(
+            forward_command, "dump_justfile", side_effect=dumps
+        ), mock.patch.object(forward_command, "error") as report:
+            parsed, failed = forward_command.dump_all(justfiles)
+        self.assertTrue(failed)
+        self.assertEqual(parsed, [(Path("two/justfile"), dump())])
+        self.assertEqual(report.call_count, 2)
+
+    def test_git_failure_is_reported_to_callers(self):
+        result = subprocess.CompletedProcess(
+            ["git"], 128, stdout="", stderr="fatal: not a repository"
+        )
+        with mock.patch.object(
+            subprocess, "run", return_value=result
+        ), mock.patch.object(forward_command, "error"):
+            lines, failed = forward_command.git(".", "ls-files")
+        self.assertEqual(lines, [])
+        self.assertTrue(failed)
+
+    def test_forward_fails_without_running_after_resolution_failure(self):
+        justfile = Path("pkg/justfile")
+        resolved = [(justfile, "pkg", recipe("test", [parameter("ARGS", "star")]))]
+        with mock.patch.object(
+            forward_command, "resolve", return_value=(resolved, [], True)
+        ), mock.patch.object(forward_command, "invoke_just") as invoke:
+            self.assertEqual(forward_command.forward("test", ["pkg"]), 1)
+        invoke.assert_not_called()
+
+
+class TestForwardInvocations(unittest.TestCase):
+    def test_accumulates_variadic_recipe_arguments(self):
+        justfile = Path("pkg/justfile")
+        test_recipe = recipe("test", [parameter("ARGS", "star")])
+
+        def resolve(command, arg):
+            return [(justfile, arg, test_recipe)], [], False
+
+        with mock.patch.object(
+            forward_command, "resolve", side_effect=resolve
+        ), mock.patch.object(forward_command, "invoke_just", return_value=0) as invoke:
+            self.assertEqual(forward_command.forward("test", ["pkg/a", "pkg/b"]), 0)
+
+        invoke.assert_called_once_with(
+            None, ["--justfile", "pkg/justfile", "test", "pkg/a", "pkg/b"]
+        )
+
+    def test_splits_non_variadic_recipe_arguments(self):
+        justfile = Path("pkg/justfile")
+        test_recipe = recipe("test", [parameter("ARG")])
+
+        def resolve(command, arg):
+            return [(justfile, arg, test_recipe)], [], False
+
+        with mock.patch.object(
+            forward_command, "resolve", side_effect=resolve
+        ), mock.patch.object(forward_command, "invoke_just", return_value=0) as invoke:
+            self.assertEqual(forward_command.forward("test", ["pkg/a", "pkg/b"]), 0)
+
+        self.assertEqual(
+            invoke.call_args_list,
+            [
+                mock.call(None, ["--justfile", "pkg/justfile", "test", "pkg/a"]),
+                mock.call(None, ["--justfile", "pkg/justfile", "test", "pkg/b"]),
+            ],
+        )
 
 
 # Resolve the same binary `forward_command` will run: it honours JUST_EXECUTABLE, so a
