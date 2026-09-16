@@ -308,7 +308,11 @@ class TestFindJustfilesAbove(unittest.TestCase):
         self.assertEqual([justfile for justfile, _ in found], [self.inner, self.outer])
 
 
-JUST = shutil.which("just")
+# Resolve the same binary `forward_command` will run: it honours JUST_EXECUTABLE, so a
+# pinned `just` would otherwise have these fixtures checked against a different binary
+# than the code uses. `which` covers both spellings, returning an explicit path as given
+# and looking a bare name up on PATH.
+JUST = shutil.which(forward_command.JUST)
 
 # The justfile below uses every construct the fixtures above model, so that a dump of it
 # can be checked against them.
