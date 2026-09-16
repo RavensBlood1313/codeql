@@ -99,10 +99,12 @@ just --evaluate _bazel_excluded                      # what mine is now
 just --justfile <this-repo>/justfile --evaluate _bazel_excluded   # what it would be
 ```
 
-A name that has gone says so rather than reporting an empty value. That is a diagnostic
-to reach for once something looks wrong, though: it answers whether a name still exists,
-not whether its meaning has changed, so it passes happily when the value here gains or
-loses a pattern. Rename freely, but say so when handing the change over.
+A name that has gone says so rather than reporting an empty value. Read as two values
+rather than as two names, the same pair also shows a freeze: a pattern appearing only
+under what it would be is one this repository added and the override never received.
+Expect differences both ways, since a root that overrode a value usually added something
+of its own, and only the missing half is a bug. Rename freely, but say so when handing
+the change over.
 
 A directory that only makes sense when named explicitly can opt out of being found from
 above:
