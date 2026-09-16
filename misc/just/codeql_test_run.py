@@ -41,6 +41,7 @@ def error(message):
     print(f"{ERROR}{message}", file=sys.stderr)
     raise SystemExit(1)
 
+
 class _Parser(argparse.ArgumentParser):
     """An `argparse` parser that fails the way the rest of this script does.
 
@@ -80,7 +81,7 @@ def parse_arguments():
             "Using `--codeql=build` or `--codeql=built` requires working "
             "with the internal repository"
         )
-    
+
     for arg in rest:
         if arg.startswith("-"):
             args.flags.append(arg)
@@ -97,7 +98,11 @@ def resolve_codeql(args: argparse.Namespace) -> Path:
     match args.codeql:
         case "built" | "build":
             return Path(
-                SEMMLE_CODE, "target", "intree", f"codeql-{args.language}", "codeql" + suffix
+                SEMMLE_CODE,
+                "target",
+                "intree",
+                f"codeql-{args.language}",
+                "codeql" + suffix,
             )
         case "host":
             codeql = shutil.which("codeql" + suffix)
@@ -109,7 +114,7 @@ def resolve_codeql(args: argparse.Namespace) -> Path:
             if codeql.is_dir():
                 codeql /= "codeql" + suffix
             return codeql
-        
+
 
 def main():
     # An empty argument can come from a caller interpolating an unset variable.
