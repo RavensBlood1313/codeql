@@ -50,9 +50,11 @@ def files_under(paths, patterns, excludes=(), absolute=False, within=None):
 
     Patterns are matched against the file name, as bazel files are identified by name
     rather than by extension. Exclusions are matched against the whole path instead,
-    which is how a directory of generated files is left alone. That path is the one the
-    walk built, so an exclusion has to allow for how the paths it is given are spelled:
-    `*/<directory>/*` does not match what is walked from `<directory>` itself.
+    which is how a directory of generated files is left alone. Both the path the walk
+    built and its absolute form are tried, as the walk only ever extends the path it
+    was given: walking `cpp` from inside a directory builds nothing naming that
+    directory, so an exclusion naming it could never match. An exclusion that has to
+    hold however the path was reached is therefore anchored absolutely.
 
     A `within` directory bounds the result to the files below it, for a command that
     answers for one project and may be handed a path reaching outside it.
@@ -65,8 +67,11 @@ def files_under(paths, patterns, excludes=(), absolute=False, within=None):
     def wanted(path):
         if boundary is not None and not path.resolve().is_relative_to(boundary):
             return False
+        # A relative pattern is anchored at the start, so it cannot match the absolute
+        # spelling: trying both only ever gives a pattern the reach it was written with.
+        spellings = (str(path), os.path.abspath(path))
         return any(fnmatch(path.name, p) for p in patterns) and not any(
-            fnmatch(str(path), e) for e in excludes
+            fnmatch(spelling, e) for e in excludes for spelling in spellings
         )
 
     found = set()

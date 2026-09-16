@@ -59,8 +59,8 @@ _bazel_args := "-mode=fix -lint=fix"
 # regardless. Being wider is deliberate: what it recognises differs between versions, and
 # each repository pins its own, so only a list covering every one of them can be shared. A
 # directory of one file per candidate name, formatted with `-r`, says what a version takes.
-# Exclusions match the path as walked, so one naming a directory has to cover both how it is
-# reached and how it is walked.
+# Exclusions match the path as walked and its absolute form, so one that has to hold
+# however the path was reached is anchored absolutely.
 _bazel_names := "BUILD,WORKSPACE,*.bazel,*.bzl,*.sky,*.star"
 
 _bazel_excluded := ".git/*,*/.git/*,*misc/bazel/3rdparty/*_deps/*"
