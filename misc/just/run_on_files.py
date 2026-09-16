@@ -7,9 +7,9 @@ paths in this repository that contain spaces.
 
 The command is run once per batch of file names rather than once per file, and the
 batches are sized so that no single command line runs into a length limit. Nothing is
-run at all when no file matches, so silence means that nothing here matched rather than
-that nothing was there: a path that does not exist is refused instead, naming one being
-an assertion that it does.
+run at all when no file matches, not even the `--banner` announcing what would have,
+so silence means that nothing here matched rather than that nothing was there: a path
+that does not exist is refused instead, naming one being an assertion that it does.
 """
 
 import argparse
@@ -148,6 +148,11 @@ def parse_args():
         help="hide matching lines of the command's output, repeatable",
     )
     parser.add_argument(
+        "--banner",
+        metavar="<text>",
+        help="announce this on standard error, but only once a file has matched",
+    )
+    parser.add_argument(
         "patterns",
         metavar="<pattern>[,<pattern>...]",
         type=comma_separated,
@@ -202,6 +207,10 @@ def main():
     files = files_under(
         args.paths, args.patterns, args.exclude, args.absolute, args.within
     )
+    if args.banner and files:
+        # The caller cannot say this itself: at the point it would, whether anything is
+        # going to run is precisely what is not yet known.
+        print(args.banner, file=sys.stderr, flush=True)
     limit = batch_limit() - sum(len(argument) + 1 for argument in args.command)
     status = 0
     for batch in batched(files, limit):

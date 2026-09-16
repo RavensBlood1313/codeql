@@ -12,6 +12,11 @@ import "build.just"
 # worked anyway: the banner used to carry an unexpanded `"$@"`, which matches no file in
 # another shell and so formatted nothing while exiting 0.
 #
+# It is handed to the collector rather than echoed here, as a recipe reaches this line
+# before knowing whether any file matched, and so can only announce an intention. The
+# collector announces the thing it is about to do. `_format_py` echoes its own, having no
+# collector to defer to and nothing to decide.
+#
 # `[no-cd]` keeps a relative argument meaning the caller's directory: the forwarder passes
 # `--justfile`, so without it the default `.` would silently become the whole repository.
 
@@ -21,8 +26,7 @@ _ql_formatter := (if SEMMLE_CODE != "" { '"$SEMMLE_CODE/target/intree/codeql-nol
 [no-exit-message]
 [positional-arguments]
 @_format_ql +ARGS: (_maybe_build_dist "nolang")
-    echo "$CMD_BEGIN-> "{{ quote(_ql_formatter) }}" -- $*$CMD_END" >&2
-    {{ py }} "{{ source_dir() }}/run_on_files.py" --drop '^Formatting ' --drop '^No change for ' "*.ql,*.qll" {{ _ql_formatter }} -v -- "$@"
+    {{ py }} "{{ source_dir() }}/run_on_files.py" --banner "$CMD_BEGIN-> "{{ quote(_ql_formatter) }}" -- $*$CMD_END" --drop '^Formatting ' --drop '^No change for ' "*.ql,*.qll" {{ _ql_formatter }} -v -- "$@"
 
 _py_formatter := if SEMMLE_CODE != "" { "uv run black" } else { "black" }
 
@@ -39,8 +43,7 @@ _cpp_formatter := (if SEMMLE_CODE != "" { "uv run clang-format" } else { "clang-
 [no-exit-message]
 [positional-arguments]
 @_format_cpp *ARGS=".":
-    echo "$CMD_BEGIN-> "{{ quote(_cpp_formatter) }}" -- $*$CMD_END" >&2
-    {{ py }} "{{ source_dir() }}/run_on_files.py" "*.h,*.cpp" {{ _cpp_formatter }} -- "$@"
+    {{ py }} "{{ source_dir() }}/run_on_files.py" --banner "$CMD_BEGIN-> "{{ quote(_cpp_formatter) }}" -- $*$CMD_END" "*.h,*.cpp" {{ _cpp_formatter }} -- "$@"
 
 # The `buildifier` target formats a whole workspace and so cannot take a path, so its
 # binary is driven directly. bazel is asked from this repository's root even when it sits
@@ -69,5 +72,4 @@ _bazel_excluded := ".git/*,*/.git/*,*misc/bazel/3rdparty/*_deps/*"
 [no-exit-message]
 [positional-arguments]
 @_format_bazel *ARGS=".":
-    echo "$CMD_BEGIN-> "{{ quote(_bazel_formatter + " -- " + _bazel_args) }}" -- $*$CMD_END" >&2
-    {{ py }} "{{ source_dir() }}/run_on_files.py" --absolute --chdir {{ _bazel_workspace }} --within {{ _bazel_workspace }} --drop ': applied fixes, 0 warnings left$' --exclude '{{ _bazel_excluded }}' "{{ _bazel_names }}" {{ _bazel_formatter }} --noshow_progress --ui_event_filters=,+error,+fail -- {{ _bazel_args }} -v -- "$@"
+    {{ py }} "{{ source_dir() }}/run_on_files.py" --banner "$CMD_BEGIN-> "{{ quote(_bazel_formatter + " -- " + _bazel_args) }}" -- $*$CMD_END" --absolute --chdir {{ _bazel_workspace }} --within {{ _bazel_workspace }} --drop ': applied fixes, 0 warnings left$' --exclude '{{ _bazel_excluded }}' "{{ _bazel_names }}" {{ _bazel_formatter }} --noshow_progress --ui_event_filters=,+error,+fail -- {{ _bazel_args }} -v -- "$@"
