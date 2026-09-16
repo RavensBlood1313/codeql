@@ -38,17 +38,17 @@ error := f'{{ style("error") }}error{{ NORMAL }}: '
 # verb would otherwise re-measure in every child it spawns, and `if` is lazy in its
 # branches. Inheritance needs a process, so a `mod` measures for itself; presetting
 # `JUST_CMD_RULE` skips measuring entirely.
-_given_rule := env('JUST_CMD_RULE', '')
+_given_horizontal_rule := env('JUST_CMD_RULE', '')
 
-_rule := if _given_rule == '' { shell('''
+_horizontal_rule := if _given_horizontal_rule == '' { shell('''
     w=$(stty size 2>/dev/null | cut -d" " -f2)
     case "$w" in '' | *[!0-9]*) w=57 ;; esac
     printf "%*s" $w "" | tr " " '#'
-''') } else { _given_rule }
+''') } else { _given_horizontal_rule }
 
-export JUST_CMD_RULE := _rule
+export JUST_CMD_RULE := _horizontal_rule
 
-cmd_sep := "\n" + _rule + "\n"
+cmd_sep := "\n" + _horizontal_rule + "\n"
 export CMD_BEGIN := style("command") + cmd_sep
 export CMD_END := cmd_sep + NORMAL
 export JUST_ERROR := error
