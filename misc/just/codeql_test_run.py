@@ -130,9 +130,6 @@ def main():
 
     for env_var in args.env:
         key, _, value = env_var.partition("=")
-        if not key:
-            error(f"Invalid environment variable assignment: {env_var}")
-            return 1
         os.environ[key] = value
 
     # Resolve codeql executable
