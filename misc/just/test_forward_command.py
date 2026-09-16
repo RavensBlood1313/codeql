@@ -15,6 +15,7 @@ import subprocess
 import tempfile
 import unittest
 from pathlib import Path
+from unittest import mock
 
 import forward_command
 
@@ -23,10 +24,11 @@ def parameter(name, kind="singular", default=None):
     return {"name": name, "kind": kind, "default": default}
 
 
-def recipe(name, parameters=(), dependencies=(), private=False):
+def recipe(name, parameters=(), dependencies=(), private=False, doc=None):
     return {
         "name": name,
         "private": private,
+        "doc": doc,
         "parameters": list(parameters),
         "dependencies": [{"recipe": dependency} for dependency in dependencies],
     }
@@ -243,6 +245,73 @@ if __name__ == "__main__":
     unittest.main()
 
 
+class TestFindJustfilesAbove(unittest.TestCase):
+    """The two shapes a consuming root can have, both of which the README promises.
+
+    A root that imports the justfile defining a `_root_<verb>` inherits it, and the verb
+    is then reached twice under two spellings of one recipe, which has to run once. A
+    root that defines its own replaces it, and both have to run, each over the files of
+    the repository defining it. No dump says which of the two happened, so they are told
+    apart by comparing the recipes themselves, and the fields that carry the difference
+    are whatever the two repositories happened not to write identically.
+
+    That makes a verbatim copy of one root recipe into another indistinguishable from
+    inheritance, comment included, and a comment is the part of a recipe most likely to
+    survive the paste that produces this.
+    """
+
+    def setUp(self):
+        directory = tempfile.TemporaryDirectory()
+        self.addCleanup(directory.cleanup)
+        root = Path(directory.name).resolve()
+        self.outer = root / "justfile"
+        self.inner = root / "inner" / "justfile"
+        self.argument = root / "inner" / "below"
+        self.argument.mkdir(parents=True)
+        for justfile in (self.outer, self.inner):
+            justfile.write_text("")
+
+    def implementing(self, doc=None, dependencies=()):
+        """A justfile that forwards `format` and answers it itself."""
+        return dump(
+            recipe(
+                "format",
+                [parameter("ARGS", "star")],
+                dependencies=[forward_command.FORWARD_RECIPE],
+            ),
+            recipe(
+                f"{forward_command.ROOT_PREFIX}format",
+                [parameter("ARGS", "star")],
+                dependencies=dependencies,
+                doc=doc,
+            ),
+        )
+
+    def found(self, outer, inner):
+        dumps = {self.outer: outer, self.inner: inner}
+        with mock.patch.object(
+            forward_command,
+            "dump_justfile",
+            side_effect=lambda justfile: (dumps[Path(justfile)], None),
+        ):
+            return forward_command.find_justfiles_above("format", str(self.argument))
+
+    def test_a_recipe_reached_under_two_spellings_runs_once(self):
+        found = self.found(self.implementing(), self.implementing())
+        self.assertEqual([justfile for justfile, _ in found], [self.inner])
+
+    def test_two_roots_differing_only_in_their_comment_both_run(self):
+        found = self.found(self.implementing(), self.implementing(doc="From here."))
+        self.assertEqual([justfile for justfile, _ in found], [self.inner, self.outer])
+
+    def test_two_roots_sharing_a_comment_still_both_run_if_they_do_different_work(self):
+        found = self.found(
+            self.implementing(doc="From here.", dependencies=["_format_other"]),
+            self.implementing(doc="From here."),
+        )
+        self.assertEqual([justfile for justfile, _ in found], [self.inner, self.outer])
+
+
 JUST = shutil.which("just")
 
 # The justfile below uses every construct the fixtures above model, so that a dump of it
@@ -258,6 +327,7 @@ explicit_verbs := ['test']
 test *ARGS='.': _helper
     echo {{ ARGS }}
 
+# A comment above a recipe becomes its doc.
 build X Y='y':
     echo {{ X }} {{ Y }}
 
@@ -306,6 +376,14 @@ class TestFixturesStillMatchJust(unittest.TestCase):
 
     def test_a_recipe_is_read_by_the_keys_the_fixtures_use(self):
         self.assertLessEqual(set(recipe("test")), set(self.dump["recipes"]["test"]))
+
+    def test_a_comment_above_a_recipe_is_the_doc_the_comparison_reads(self):
+        # Two root recipes doing different jobs are often told apart by this alone.
+        recipes = self.dump["recipes"]
+        self.assertEqual(
+            recipes["build"]["doc"], "A comment above a recipe becomes its doc."
+        )
+        self.assertIsNone(recipes["test"]["doc"])
 
     def test_a_private_recipe_says_so(self):
         self.assertIs(self.dump["recipes"]["_helper"]["private"], True)

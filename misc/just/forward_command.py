@@ -241,9 +241,10 @@ def find_justfiles_above(command, arg):
         # Two repositories that each define a root recipe are not that case: the text
         # can match while the workspace, the tool it runs and the paths it excludes all
         # differ, so they have to stay apart. Nothing here says so. They are told apart
-        # only by the doc comment one of them happens to carry, which means dropping
-        # `doc` from this comparison silently discards an invocation unless a real
-        # discriminator arrives in the same change.
+        # only by whatever the two happened not to write identically, which today is a
+        # doc comment on one of them, so dropping a field from this comparison silently
+        # discards an invocation unless a real discriminator arrives in the same change.
+        # `TestFindJustfilesAbove` holds both shapes.
         if recipe is not None and recipe not in seen:
             seen.append(recipe)
             found.append((justfile, recipe))

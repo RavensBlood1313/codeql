@@ -62,6 +62,11 @@ root that defines its own instead replaces it, and then both run, each over the 
 the repository that defines it: bazel formatting asks bazel from the root of the checkout
 the files belong to, so that a repository formats its own files with its own pin.
 
+Nothing in a justfile says which of the two happened, so they are told apart by comparing
+the recipes. A root whose own copy is identical to the one it would otherwise inherit,
+down to the comment above it, is therefore taken for the inherited one and runs once.
+Copy such a recipe to start from if it helps, but leave its comment behind.
+
 That last part is arranged by variables rather than by recipes. `set
 allow-duplicate-variables` in `defs.just` lets an importing justfile assign a variable
 defined here and have its value win, which is how a consuming root points the bazel
