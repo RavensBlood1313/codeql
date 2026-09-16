@@ -16,7 +16,10 @@ _cpp_formatter := if SEMMLE_CODE != "" { "uv run clang-format" } else { "clang-f
 # hence `_bazel` in build.just going the other way.
 _bazel_workspace := quote(parent_directory(parent_directory(source_dir())))
 
-_bazel_formatter := "bazel run --noshow_progress --ui_event_filters=,+error,+fail @buildifier_prebuilt//:buildifier --"
+# As with the formatters above, an internal repository checkout has its own launcher and
+# that is the one to use. Unlike `_bazel` in build.just it is not `cd`ed to: the workspace
+# is picked by `--chdir` below, so the launcher only has to be found, not entered.
+_bazel_formatter := (if SEMMLE_CODE != "" { '"$SEMMLE_CODE/tools/bazel"' } else { "bazel" }) + " run --noshow_progress --ui_event_filters=,+error,+fail @buildifier_prebuilt//:buildifier --"
 
 # bazel files are named rather than suffixed, and buildifier has no exclude option of its
 # own, so the files skipped by the target above are skipped here too. That target formats
