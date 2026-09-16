@@ -23,9 +23,10 @@ error := f'{{ style("error") }}error{{ NORMAL }}: '
 # With no terminal the value is non-numeric and this falls back to the 56 dashes used
 # before. That is a branch, not a platform test: just runs `sh` everywhere.
 #
-# Measured once and inherited: `shell()` runs on every parse, so a forwarded verb would
-# otherwise re-measure in every child it spawns, while `if` is lazy in its branches.
-# Setting `JUST_CMD_RULE` pins the rule and skips measuring.
+# Exported and preferred over measuring: `shell()` runs on every parse, so a forwarded
+# verb would otherwise re-measure in every child it spawns, and `if` is lazy in its
+# branches. Inheritance needs a process, so a `mod` measures for itself; presetting
+# `JUST_CMD_RULE` skips measuring entirely.
 _rule := if env('JUST_CMD_RULE', '') != '' { env('JUST_CMD_RULE', '') } else { shell('''
     w=$(stty size 2>/dev/null | cut -d" " -f2)
     case "$w" in '' | *[!0-9]*) w=57 ;; esac

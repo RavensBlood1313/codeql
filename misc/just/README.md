@@ -152,12 +152,16 @@ is to aim the verb at something narrower.
 
 # Command separators
 
-Commands are echoed between rules that span the terminal. The width is measured once, by
-the outermost `just`, and handed down to everything it spawns in `JUST_CMD_RULE`.
-Measuring is why: `shell()` runs on every parse, so a verb reaching a dozen justfiles
-would otherwise ask a dozen times, and a single measurement is also one nothing can
-disagree with. Setting `JUST_CMD_RULE` pins the rule rather than measuring it, which is
-how to fix the width in CI or in a recording.
+Commands are echoed between rules that span the terminal. Measuring the width means a
+`shell()` call, and that runs on every parse, so the result is exported as
+`JUST_CMD_RULE` and an inherited value is preferred to measuring again.
+
+Inheritance crosses processes, which is what forwarding creates: a child per justfile
+reached, each of them measuring nothing. A `mod` spawns no process, so a module measures
+for itself, and the count follows `mod` statements rather than justfiles. That is cheap,
+and modules agree anyway since they share a terminal, but it is worth knowing before
+counting measurements. Presetting `JUST_CMD_RULE` skips all of them, and is also how to
+fix the width in CI or in a recording.
 
 With no terminal to ask — a pipe, a log, a shell without `stty` — it falls back to a
 fixed 56 characters, so anything not attached to a terminal looks as it always did. That
