@@ -4,8 +4,10 @@
 Called from just recipes as:
     python3 language_tests.py ROOT [ARG...]
 
-Arguments are already split by `just` (see `set lists`). The first one must be a test
-root, which is used to locate the justfile implementing `test` for that suite.
+Arguments are already split by `just` (see `set lists`). Only the first locates a
+justfile: its `test` recipe is run once, and every argument after it is handed to that
+one recipe rather than visited in turn. Roots wanting different `test` recipes therefore
+cannot be run together.
 """
 
 import os
