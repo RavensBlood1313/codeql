@@ -20,8 +20,11 @@ _bazel_args := "-mode=fix -lint=fix"
 
 # Keep both in step with the `buildifier` target. The names are what it recognises walking a
 # workspace, a check it skips for paths handed to it, so anything extra here is rewritten
-# regardless. Exclusions match the path as walked, so one naming a directory has to cover
-# both how it is reached and how it is walked.
+# regardless. Being wider is deliberate: what it recognises differs between versions, and
+# each repository pins its own, so only a list covering every one of them can be shared. A
+# directory of one file per candidate name, formatted with `-r`, says what a version takes.
+# Exclusions match the path as walked, so one naming a directory has to cover both how it is
+# reached and how it is walked.
 _bazel_names := "BUILD,WORKSPACE,*.bazel,*.bzl,*.sky,*.star"
 
 _bazel_excluded := ".git/*,*/.git/*,*misc/bazel/3rdparty/*_deps/*"
