@@ -111,7 +111,11 @@ def accepts(recipe, argc):
 def implements(dump, command, argc):
     """Return the recipe a justfile runs for a command, if it has a usable one."""
     recipes = dump["recipes"]
-    recipe = recipes.get(dump["aliases"].get(command, command))
+    # An alias dumps as an object rather than as its target, so the name has to be read
+    # out of it. Unreachable from the forwarder, which only ever passes whole verbs,
+    # until a justfile aliases something to a verb's own name.
+    alias = dump["aliases"].get(command)
+    recipe = recipes.get(alias["target"] if alias else command)
     if recipe is None or recipe["private"]:
         return None
     if any(

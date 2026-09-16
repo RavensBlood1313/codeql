@@ -4,9 +4,15 @@
 These cover the deciding rather than the running: which justfile answers a verb, with
 how many arguments, and which ones ask to be passed over. All of that is read out of
 `just --dump`, so the shapes below were taken from what `just` really emits rather than
-imagined -- a test built on an invented shape would agree with itself forever.
+imagined. That is checked rather than claimed: the last class here dumps a real justfile
+and holds the fixtures against it, because a hand-written shape is otherwise only as
+good as the day it was written, and agrees with itself long after `just` has moved on.
 """
 
+import json
+import shutil
+import subprocess
+import tempfile
 import unittest
 from pathlib import Path
 
@@ -24,6 +30,10 @@ def recipe(name, parameters=(), dependencies=(), private=False):
         "parameters": list(parameters),
         "dependencies": [{"recipe": dependency} for dependency in dependencies],
     }
+
+
+def alias(name, target):
+    return {"attributes": [], "name": name, "target": target}
 
 
 def dump(*recipes, aliases=None, assignments=None):
@@ -84,7 +94,7 @@ class TestImplements(unittest.TestCase):
 
     def test_follows_an_alias(self):
         found = forward_command.implements(
-            dump(recipe("test"), aliases={"t": "test"}), "t", 0
+            dump(recipe("test"), aliases={"t": alias("t", "test")}), "t", 0
         )
         self.assertEqual(found["name"], "test")
 
@@ -198,3 +208,92 @@ class TestInvocationPath(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+JUST = shutil.which("just")
+
+# The justfile below uses every construct the fixtures above model, so that a dump of it
+# can be checked against them.
+CONSTRUCTS = """
+set unstable
+set lists
+
+alias t := test
+
+explicit_verbs := ['test']
+
+test *ARGS='.': _helper
+    echo {{ ARGS }}
+
+build X Y='y':
+    echo {{ X }} {{ Y }}
+
+lint +ARGS:
+    echo {{ ARGS }}
+
+[private]
+_helper:
+    echo helper
+"""
+
+
+@unittest.skipUnless(JUST, "needs `just` on PATH")
+class TestFixturesStillMatchJust(unittest.TestCase):
+    """Check the fixtures above against what `just` really dumps.
+
+    Everything else here reads a shape written by hand, which is only as good as the
+    day it was written: `just` changed how it dumps an alias once already, and the test
+    covering aliases went on passing against the shape that had gone away. A fixture
+    cannot notice that on its own, so this asks the real thing.
+
+    Only the fields the code reads are compared. `just` is free to dump more, and a
+    test that failed whenever it did would be noise rather than a warning.
+    """
+
+    @classmethod
+    def setUpClass(cls):
+        with tempfile.TemporaryDirectory() as directory:
+            justfile = Path(directory) / "justfile"
+            justfile.write_text(CONSTRUCTS)
+            dumped = subprocess.run(
+                [JUST, "--justfile", str(justfile), "--dump", "--dump-format", "json"],
+                capture_output=True,
+                text=True,
+                check=True,
+            )
+        cls.dump = json.loads(dumped.stdout)
+
+    def test_a_dump_is_read_by_the_keys_the_fixtures_use(self):
+        self.assertLessEqual(set(dump()), set(self.dump))
+
+    def test_an_alias_names_its_target(self):
+        real = self.dump["aliases"]["t"]
+        self.assertEqual(set(alias("t", "test")), set(real))
+        self.assertEqual(real["target"], "test")
+
+    def test_a_recipe_is_read_by_the_keys_the_fixtures_use(self):
+        self.assertLessEqual(set(recipe("test")), set(self.dump["recipes"]["test"]))
+
+    def test_a_private_recipe_says_so(self):
+        self.assertIs(self.dump["recipes"]["_helper"]["private"], True)
+        self.assertIs(self.dump["recipes"]["test"]["private"], False)
+
+    def test_a_dependency_names_its_recipe(self):
+        dependencies = self.dump["recipes"]["test"]["dependencies"]
+        self.assertEqual([d["recipe"] for d in dependencies], ["_helper"])
+
+    def test_parameters_keep_the_kinds_and_defaults_accepts_reads(self):
+        kinds = {
+            name: [(p["kind"], p["default"]) for p in recipe["parameters"]]
+            for name, recipe in self.dump["recipes"].items()
+        }
+        self.assertEqual(kinds["test"], [("star", ".")])
+        self.assertEqual(kinds["build"], [("singular", None), ("singular", "y")])
+        self.assertEqual(kinds["lint"], [("plus", None)])
+        self.assertEqual(kinds["_helper"], [])
+
+    def test_a_list_assignment_is_the_shape_list_value_unwraps(self):
+        self.assertEqual(
+            forward_command.list_value(self.dump["assignments"], "explicit_verbs"),
+            ["test"],
+        )
