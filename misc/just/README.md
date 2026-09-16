@@ -162,7 +162,7 @@ for itself, and the count is one per `mod` reached, however deeply nested, plus 
 the file itself. That is cheap, and modules agree anyway since they share a terminal,
 but it is worth knowing before counting measurements. Presetting `JUST_CMD_RULE` skips
 all of them, and is also how to fix the width in CI or in a recording — it is the whole
-line, so set it to something the shell will treat as a comment.
+separator and ends up in a shell script, so every line of it has to be a comment.
 
 With no terminal to ask — a pipe, a log, a shell without `stty` — it falls back to a
 fixed 57 columns, so logs and CI output are the same width every time. That is one

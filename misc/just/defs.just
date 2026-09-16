@@ -23,8 +23,9 @@ error := f'{{ style("error") }}error{{ NORMAL }}: '
 # With no terminal the value is non-numeric and this falls back to a fixed 57 columns.
 # That is a branch, not a platform test: just runs `sh` everywhere.
 #
-# `JUST_CMD_RULE` is the whole line and lands in a shell script, so a value set by hand
-# has to be a comment itself.
+# `JUST_CMD_RULE` is the whole separator and lands in a shell script, so a hand-set
+# value has to be a comment -- every line of it, if it has more than one. Nothing checks
+# that; a value that is not one gets run.
 #
 # Exported and preferred over measuring: `shell()` runs on every parse, so a forwarded
 # verb would otherwise re-measure in every child it spawns, and `if` is lazy in its
