@@ -152,9 +152,18 @@ is to aim the verb at something narrower.
 
 # Command separators
 
-Commands are echoed between rules that span the terminal. Measuring the width means a
-`shell()` call, and that runs on every parse, so the result is exported as
-`JUST_CMD_RULE` and an inherited value is preferred to measuring again.
+Commands are echoed between rules that span the terminal. The formatters echo a summary
+rather than the line that runs: they name the formatter and what it is told to do, and
+leave out the wrapper that collects the files, the patterns it walks and the flags that
+only shape output. A leading `-> ` marks a line as that summary. `just -n` prints what
+actually runs, which it does whether or not the recipe is `@`-quiet.
+
+Nothing is lost by this, as a banner has never been something to paste: the echoed line
+carried an unexpanded `"$@"`, which matches no file in another shell, so pasting one
+formatted nothing and exited 0.
+
+Measuring the width means a `shell()` call, and that runs on every parse, so the result
+is exported as `JUST_CMD_RULE` and an inherited value is preferred to measuring again.
 
 Inheritance crosses processes, which is what forwarding creates: a child per justfile
 reached, each of them measuring nothing. A `mod` spawns no process, so a module measures
