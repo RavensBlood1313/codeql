@@ -146,6 +146,37 @@ class TestEmptyArguments(unittest.TestCase):
         self.assertNotIn("--", flags("", "--", "--check-databases"))
 
 
+class TestOfferedChecks(unittest.TestCase):
+    """What a root offers and what `--all-checks` enables are separate things.
+
+    These go through `main` because that is where the two meet. `--all-checks` is
+    injected on every language test run rather than typed, so it means "enable whatever
+    this root offers" and not "I want more coverage": a root offering nothing has to
+    stay runnable through it.
+    """
+
+    def test_an_offered_check_is_applied_when_asked_for(self):
+        applied = flags("--extra-check=--check-databases", "--all-checks")
+        self.assertIn("--check-databases", applied)
+
+    def test_an_offered_check_stays_held_back_until_it_is(self):
+        self.assertNotIn("--check-databases", flags("--extra-check=--check-databases"))
+
+    def test_asking_for_checks_a_root_offers_none_of_enables_nothing(self):
+        self.assertEqual(paths("--all-checks", "some/test"), ["some/test"])
+        self.assertEqual(flags("--all-checks", "some/test"), flags("some/test"))
+
+    def test_a_check_passed_unconditionally_is_not_an_offer(self):
+        # A root can mean to run a check always rather than put it behind the flag. That
+        # is a flag like any other here, so it neither becomes an offer nor is withheld
+        # until the offers are asked for.
+        always = flags("--check-databases", "some/test")
+        self.assertIn("--check-databases", always)
+        self.assertEqual(
+            flags("--check-databases", "--all-checks", "some/test"), always
+        )
+
+
 class TestSettings(unittest.TestCase):
     """`RAM_PER_THREAD` and `CPUS` are read back after assignments are applied.
 
