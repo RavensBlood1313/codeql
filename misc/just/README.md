@@ -81,7 +81,16 @@ overriding several loses only the renamed one, leaving a half-applied configurat
 total failure would land in a state someone designed, while partial failure lands in one
 nobody has ever seen.
 
-Nothing can see it either, because the underscore that keeps these out of `just --list`
+An override also freezes what it replaces. A root assigns the whole value, so an
+exclusion or a name added here later never reaches one, and `just` offers no way to
+append: a root writing `_bazel_excluded := _bazel_excluded + ",mine"` is told the
+variable is defined in terms of itself. This runs the opposite way from a rename, where
+the override stops applying and the value here wins. Here the override keeps applying
+exactly as written, and the roots that never see the addition are the ones that cared
+enough about the setting to redirect it. Adding to one of these values is therefore a
+change to make on both sides at once.
+
+Neither shows up anywhere, because the underscore that keeps these out of `just --list`
 keeps them out of `--variables` and a bare `--evaluate` as well. Asked by name they do
 answer, which is how a root checks that an override of its own still overrides anything:
 
