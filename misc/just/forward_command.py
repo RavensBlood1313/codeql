@@ -317,6 +317,9 @@ def report_opted_out(command, justfiles, *, ran):
 
 def invoke_just(cwd, args):
     """Run just with the given arguments."""
+    # This process' stdout is block-buffered off a terminal, while the child writes to the
+    # same descriptor at once: without this the account lands after what it describes.
+    sys.stdout.flush()
     try:
         subprocess.run([JUST, *args], check=True, cwd=cwd)
     except subprocess.CalledProcessError as e:
