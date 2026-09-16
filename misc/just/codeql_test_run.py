@@ -39,7 +39,7 @@ def invoke(invocation, *, cwd=None, log_prefix=""):
 
 def error(message):
     print(f"{ERROR}{message}", file=sys.stderr)
-
+    raise SystemExit(1)
 
 class _Parser(argparse.ArgumentParser):
     """An `argparse` parser that fails the way the rest of this script does.
@@ -51,7 +51,6 @@ class _Parser(argparse.ArgumentParser):
 
     def error(self, message):
         error(message)
-        raise SystemExit(1)
 
 
 def build_parser():
@@ -83,10 +82,7 @@ def parse_arguments():
         )
     
     for arg in rest:
-        # An empty argument can come from a caller interpolating an unset variable.
-        if not arg:
-            pass
-        elif arg.startswith("-"):
+        if arg.startswith("-"):
             args.flags.append(arg)
         elif m := ENV_RE.match(arg):
             k, v = m.groups()
@@ -101,18 +97,23 @@ def resolve_codeql(args: argparse.Namespace) -> Path:
     match args.codeql:
         case "built" | "build":
             return Path(
-                SEMMLE_CODE, "target", "intree", f"codeql-{args.language}", "codeql"
-            ).with_suffix(suffix)
+                SEMMLE_CODE, "target", "intree", f"codeql-{args.language}", "codeql" + suffix
+            )
         case "host":
-            return Path(shutil.which("codeql" + suffix))
+            codeql = shutil.which("codeql" + suffix)
+            if not codeql:
+                error("CodeQL executable not found in PATH")
+            return Path(codeql)
         case _:
             codeql = Path(args.codeql)
             if codeql.is_dir():
-                codeql /= "codeql"
-            return codeql.with_suffix(suffix)
+                codeql /= "codeql" + suffix
+            return codeql
         
 
 def main():
+    # An empty argument can come from a caller interpolating an unset variable.
+    sys.argv = [a for a in sys.argv if a]
     args = parse_arguments()
 
     if args.all:
@@ -129,8 +130,8 @@ def main():
     # Resolve these only once all arguments are known, so that a `RAM_PER_THREAD=` test
     # argument can lower the default on memory-heavy suites.
     default_ram = 3000 if sys.platform == "linux" else 2048
-    ram_per_thread = int(os.environ.get("RAM_PER_THREAD", default_ram))
-    cpus = int(os.environ.get("CPUS", os.cpu_count() or 1))
+    ram_per_thread = int(os.environ.get("RAM_PER_THREAD") or default_ram)
+    cpus = int(os.environ.get("CPUS") or os.cpu_count() or 1)
     args.flags[:0] = [f"--ram={ram_per_thread * cpus}", f"-j{cpus}"]
 
     if args.codeql == "build":
@@ -146,7 +147,6 @@ def main():
 
     if not codeql.exists():
         error(f"CodeQL executable not found: {codeql}")
-        return 1
 
     return invoke(
         [codeql, "test", "run", *args.flags, "--", *args.tests],
