@@ -7,7 +7,9 @@ paths in this repository that contain spaces.
 
 The command is run once per batch of file names rather than once per file, and the
 batches are sized so that no single command line runs into a length limit. Nothing is
-run at all when no file matches.
+run at all when no file matches, so silence means that nothing here matched rather than
+that nothing was there: a path that does not exist is refused instead, naming one being
+an assertion that it does.
 """
 
 import argparse
@@ -160,6 +162,9 @@ def parse_args():
     args.command, args.paths = args.rest[:separator], args.rest[separator + 1 :]
     if not args.command:
         parser.error("no command given")
+    missing = [path for path in args.paths if not os.path.exists(path)]
+    if missing:
+        parser.error("no such path: " + ", ".join(missing))
     return args
 
 
