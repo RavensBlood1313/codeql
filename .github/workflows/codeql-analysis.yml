@@ -40,7 +40,7 @@ jobs:
       uses: github/codeql-action/init@main
       # Override language selection by uncommenting this and choosing your languages
       with:
-        languages: csharp
+        languages: csharp, cpp
         config-file: ./.github/codeql/codeql-config.yml
 
     # Autobuild attempts to build any compiled languages  (C/C++, C#, or Java).
@@ -57,6 +57,19 @@ jobs:
 
     - run: |
        dotnet build csharp
+  
+    - name: "[Ubuntu] Remove GCC 13 from runner image"
+      shell: bash
+      run: |
+        sudo rm -f /etc/apt/sources.list.d/ubuntu-toolchain-r-ubuntu-test-jammy.list
+        sudo apt-get update
+        sudo apt-get install -y --allow-downgrades libc6=2.35-* libc6-dev=2.35-* libstdc++6=12.3.0-* libgcc-s1=12.3.0-*
+
+    - name: "Build Swift extractor using Bazel"
+      run: |
+        bazel clean --expunge
+        bazel run //swift:create-extractor-pack --nouse_action_cache --noremote_accept_cached --noremote_upload_local_results --spawn_strategy=local --features=-layering_check
+        bazel shutdown
 
     - name: Perform CodeQL Analysis
       uses: github/codeql-action/analyze@main
